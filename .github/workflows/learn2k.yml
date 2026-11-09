@@ -1,0 +1,101 @@
+# Written by learn-author 0.5.1 (learn-author new ci): the CI of the course on Learn2K.
+# Every run compiles the course and checks its exercises: each solution passes its checks and each
+# starter does not. A push to main, or a manual run, also publishes it. There is no secret: GitHub
+# proves to Learn2K which repository each run comes from, once the course is linked to this
+# repository in the backoffice («Pubblicazione dalla CI»). To move to a newer learn-author, run
+# learn-author new ci again.
+name: Learn2K
+
+on:
+  push:
+    branches: ['main']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  # The OIDC token of GitHub that proves where the run comes from.
+  id-token: write
+
+concurrency:
+  group: learn2k-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  LEARN_AUTHOR_API: 'https://learn2k.it'
+  LEARN_AUTHOR_VERSION: '0.5.1'
+  PUBLISH_BRANCH: 'main'
+  COURSE: '.'
+
+jobs:
+  course:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v7
+
+      # Node.js and the package of learn-author, downloaded by the launcher at its first run.
+      - uses: actions/cache@v6
+        with:
+          path: ~/.learn-author
+          key: learn-author-${{ env.LEARN_AUTHOR_VERSION }}-${{ runner.os }}-${{ runner.arch }}
+
+      - name: Install learn-author
+        run: |
+          # learn2k-token prints a new OIDC token of GitHub for Learn2K: it lasts a few minutes, so
+          # every step that talks to Learn2K asks for one.
+          bin="$RUNNER_TEMP/learn-author"
+          mkdir -p "$bin"
+          cat > "$bin/learn2k-token" <<'EOF'
+          #!/bin/sh
+          set -eu
+          if [ -z "${ACTIONS_ID_TOKEN_REQUEST_URL:-}" ]; then
+            echo "::error::GitHub gives this run no token (a pull request from a fork?), so it cannot reach Learn2K." >&2
+            exit 1
+          fi
+          curl -fsS -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+            "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=$LEARN_AUTHOR_API" | jq -r .value
+          EOF
+          chmod +x "$bin/learn2k-token"
+
+          # The launcher, checked as learn-author update does: its SHA-256 in SHA256SUMS, and the
+          # signature of SHA256SUMS with the keys of the releases of Learn2K.
+          token=$("$bin/learn2k-token")
+          files="$LEARN_AUTHOR_API/api/v1/tools/learn-author/releases/$LEARN_AUTHOR_VERSION/files"
+          binary=learn-author-x86_64-unknown-linux-musl
+          cd "$RUNNER_TEMP"
+          for name in SHA256SUMS SHA256SUMS.sig "$binary"; do
+            curl -fsSL -H "Authorization: Bearer $token" -o "$name" "$files/$name"
+          done
+          verified=false
+          while read -r key; do
+            # A raw Ed25519 key becomes a SubjectPublicKeyInfo with the DER prefix of RFC 8410.
+            { printf '\x30\x2a\x30\x05\x06\x03\x2b\x65\x70\x03\x21\x00'; printf '%s' "$key" | base64 -d; } > key.der
+            if openssl pkeyutl -verify -rawin -pubin -keyform DER -inkey key.der \
+              -in SHA256SUMS -sigfile SHA256SUMS.sig > /dev/null 2>&1; then
+              verified=true
+            fi
+          done <<'KEYS'
+          TvjTyDzRCm1K7LrEDZAJgDnb9q0q/ggVlAvbSUo7AkI=
+          KEYS
+          if [ "$verified" != true ]; then
+            echo "::error::The signature of the release $LEARN_AUTHOR_VERSION of learn-author is not valid." >&2
+            exit 1
+          fi
+          grep -E "^[0-9a-f]{64} [ *]$binary\$" SHA256SUMS | sha256sum -c --strict -
+          install -m 755 "$binary" "$bin/learn-author"
+          echo "$bin" >> "$GITHUB_PATH"
+          echo "LEARN_AUTHOR_HOME=$HOME/.learn-author" >> "$GITHUB_ENV"
+
+      - name: Compile the course
+        working-directory: ${{ env.COURSE }}
+        run: LEARNLAB_TOKEN="$(learn2k-token)" learn-author build
+
+      - name: Check the exercises
+        working-directory: ${{ env.COURSE }}
+        run: learn-author test-exercises --jobs 2
+
+      - name: Publish
+        if: github.event_name != 'pull_request' && github.ref == format('refs/heads/{0}', env.PUBLISH_BRANCH)
+        working-directory: ${{ env.COURSE }}
+        run: LEARNLAB_TOKEN="$(learn2k-token)" learn-author publish --api "$LEARN_AUTHOR_API"

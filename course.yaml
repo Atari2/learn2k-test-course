@@ -1,0 +1,9 @@
+schemaVersion: 1
+id: test-course
+title: test-course
+description: Descrivi il corso in una o due frasi.
+language: it
+level: beginner
+tags: []
+authors:
+  - name: Nome dell'autore
