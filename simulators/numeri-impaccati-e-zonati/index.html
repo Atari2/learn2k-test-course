@@ -1,0 +1,456 @@
+<!doctype html>
+<html lang="it">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="learn2k-simulator" content="sdk=1; completion=reported" />
+    <title>Numeri impaccati e zonati</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        --bg: #ffffff;
+        --fg: #1f2933;
+        --muted: #52606d;
+        --border: #9aa5b1;
+        --surface: #f5f7fa;
+        --accent: #1d4ed8;
+        --ok: #047857;
+        --error: #b91c1c;
+        --sign: #7c2d12;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root:not([data-theme='light']) {
+          --bg: #111827;
+          --fg: #f3f4f6;
+          --muted: #9ca3af;
+          --border: #6b7280;
+          --surface: #1f2937;
+          --accent: #93c5fd;
+          --ok: #6ee7b7;
+          --error: #fca5a5;
+          --sign: #fdba74;
+        }
+      }
+      :root[data-theme='dark'] {
+        color-scheme: dark;
+        --bg: #111827;
+        --fg: #f3f4f6;
+        --muted: #9ca3af;
+        --border: #6b7280;
+        --surface: #1f2937;
+        --accent: #93c5fd;
+        --ok: #6ee7b7;
+        --error: #fca5a5;
+        --sign: #fdba74;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        padding: 16px;
+        background: var(--bg);
+        color: var(--fg);
+        font:
+          15px/1.5 system-ui,
+          sans-serif;
+      }
+      h1 {
+        margin: 0 0 4px;
+        font-size: 1.15rem;
+      }
+      h2 {
+        margin: 20px 0 8px;
+        font-size: 1.05rem;
+      }
+      h3 {
+        margin: 12px 0 6px;
+        font-size: 0.95rem;
+      }
+      p {
+        margin: 0 0 12px;
+      }
+      .intro {
+        color: var(--muted);
+      }
+      .fields {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        align-items: flex-end;
+      }
+      label {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        font-weight: 600;
+      }
+      input {
+        min-height: 36px;
+        padding: 6px 8px;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        background: var(--bg);
+        color: var(--fg);
+        font: inherit;
+      }
+      input[type='number'] {
+        width: 7em;
+      }
+      input#valore {
+        width: 12em;
+        font-family: ui-monospace, monospace;
+      }
+      .examples {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 12px;
+      }
+      button {
+        min-height: 36px;
+        padding: 6px 14px;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        background: var(--surface);
+        color: var(--fg);
+        font: inherit;
+        cursor: pointer;
+      }
+      button.primary {
+        border-color: var(--accent);
+        color: var(--accent);
+        font-weight: 600;
+      }
+      button:focus-visible,
+      input:focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: 2px;
+      }
+      code,
+      .mono {
+        font-family: ui-monospace, monospace;
+      }
+      .status {
+        margin-top: 12px;
+        padding: 10px 12px;
+        border-left: 3px solid var(--accent);
+        background: var(--surface);
+      }
+      .status.error {
+        border-left-color: var(--error);
+      }
+      .status.done {
+        border-left-color: var(--ok);
+      }
+      .bytes {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        margin: 0 0 8px;
+        padding: 0;
+        list-style: none;
+      }
+      .bytes li {
+        padding: 4px 8px;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        background: var(--surface);
+        font-family: ui-monospace, monospace;
+        font-size: 1.05rem;
+      }
+      .bytes .sign {
+        color: var(--sign);
+        font-weight: 700;
+      }
+      table {
+        border-collapse: collapse;
+        margin-bottom: 8px;
+      }
+      th,
+      td {
+        padding: 4px 10px;
+        border: 1px solid var(--border);
+        text-align: left;
+      }
+      th {
+        background: var(--surface);
+      }
+      .goals {
+        margin: 0;
+        padding-left: 20px;
+      }
+      .goals .ok {
+        color: var(--ok);
+        font-weight: 600;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Numeri impaccati e zonati</h1>
+    <p class="intro">
+      Scegli la dimensione del campo e un valore, poi premi «Converti»: vedi i byte che RPG scrive
+      in memoria per un campo <code>packed</code> e per un campo <code>zoned</code>.
+    </p>
+
+    <h2>Il campo</h2>
+    <div class="fields">
+      <label>
+        Cifre totali
+        <input id="cifre" type="number" min="1" max="31" value="7" />
+      </label>
+      <label>
+        Cifre decimali
+        <input id="decimali" type="number" min="0" max="31" value="2" />
+      </label>
+      <label>
+        Valore
+        <input id="valore" type="text" inputmode="decimal" value="12345.67" autocomplete="off" />
+      </label>
+      <button type="button" class="primary" id="converti">Converti</button>
+    </div>
+    <div class="examples">
+      <button type="button" data-value="12345.67">Esempio: 12345.67</button>
+      <button type="button" data-value="-42.5">Esempio: -42.5</button>
+      <button type="button" data-value="3.14159">Esempio: 3.14159</button>
+      <button type="button" data-value="1000000">Esempio: 1000000</button>
+    </div>
+    <p class="status" id="status" aria-live="polite"></p>
+
+    <div id="result" role="region" aria-label="Byte in memoria">
+      <h2>In memoria</h2>
+      <p id="dichiarazione"></p>
+      <h3>Impaccato</h3>
+      <p id="packed-summary"></p>
+      <ul class="bytes" id="packed-bytes"></ul>
+      <table>
+        <thead>
+          <tr>
+            <th scope="col">Byte</th>
+            <th scope="col">Esadecimale</th>
+            <th scope="col">Contenuto</th>
+          </tr>
+        </thead>
+        <tbody id="packed-table"></tbody>
+      </table>
+      <h3>Zonato</h3>
+      <p id="zoned-summary"></p>
+      <ul class="bytes" id="zoned-bytes"></ul>
+      <table>
+        <thead>
+          <tr>
+            <th scope="col">Byte</th>
+            <th scope="col">Esadecimale</th>
+            <th scope="col">Contenuto</th>
+          </tr>
+        </thead>
+        <tbody id="zoned-table"></tbody>
+      </table>
+      <p class="intro">
+        Il punto decimale non è mai in memoria: la posizione della virgola la conosce solo la
+        dichiarazione. Il segno è nell'ultima mezza cifra: <span class="mono">F</span> per i
+        positivi, <span class="mono">D</span> per i negativi. In EBCDIC i byte
+        <span class="mono">F0</span>-<span class="mono">F9</span> sono i caratteri da
+        <span class="mono">0</span> a <span class="mono">9</span>: un zonato positivo, letto come
+        testo, mostra le sue cifre.
+      </p>
+    </div>
+
+    <h2>Obiettivi</h2>
+    <ul class="goals">
+      <li id="goal-negativo">Converti un numero negativo: <span>da fare</span></li>
+      <li id="goal-overflow">Prova un numero che non entra nel campo: <span>da fare</span></li>
+    </ul>
+
+    <script>
+      const cifreInput = document.getElementById('cifre');
+      const decimaliInput = document.getElementById('decimali');
+      const valoreInput = document.getElementById('valore');
+      const status = document.getElementById('status');
+      const result = document.getElementById('result');
+      const goals = { negativo: false, overflow: false };
+      let completed = false;
+
+      function setStatus(text, kind) {
+        status.textContent = text;
+        status.classList.toggle('error', kind === 'error');
+        status.classList.toggle('done', kind === 'done');
+      }
+
+      function parseValue(text) {
+        const match = /^\s*([+-]?)(\d*)(?:[.,](\d*))?\s*$/.exec(text);
+        if (!match || (match[2] === '' && (match[3] ?? '') === '')) return null;
+        return {
+          negative: match[1] === '-',
+          intPart: match[2].replace(/^0+/, ''),
+          fracPart: match[3] ?? '',
+        };
+      }
+
+      function packedBytes(digits, negative) {
+        const padded = digits.length % 2 === 0 ? '0' + digits : digits;
+        const nibbles = padded + (negative ? 'D' : 'F');
+        const bytes = [];
+        for (let i = 0; i < nibbles.length; i += 2) bytes.push(nibbles.slice(i, i + 2));
+        return { bytes, padded: padded.length !== digits.length };
+      }
+
+      function zonedBytes(digits, negative) {
+        return [...digits].map((d, i) =>
+          i === digits.length - 1 ? (negative ? 'D' : 'F') + d : 'F' + d,
+        );
+      }
+
+      function fillBytes(list, bytes) {
+        list.replaceChildren(
+          ...bytes.map((b, i) => {
+            const li = document.createElement('li');
+            if (i === bytes.length - 1) {
+              li.append(b[0]);
+              const sign = document.createElement('span');
+              sign.className = 'sign';
+              sign.textContent = b[1];
+              li.append(sign);
+            } else {
+              li.textContent = b;
+            }
+            return li;
+          }),
+        );
+      }
+
+      function fillTable(tbody, rows) {
+        tbody.replaceChildren(
+          ...rows.map(([n, hex, text]) => {
+            const tr = document.createElement('tr');
+            for (const value of [n, hex, text]) {
+              const td = document.createElement('td');
+              td.textContent = value;
+              tr.append(td);
+            }
+            return tr;
+          }),
+        );
+      }
+
+      function updateGoals() {
+        for (const [key, done] of Object.entries(goals)) {
+          const item = document.getElementById('goal-' + key);
+          const label = item.querySelector('span');
+          label.textContent = done ? 'fatto ✓' : 'da fare';
+          label.className = done ? 'ok' : '';
+        }
+        if (!completed && goals.negativo && goals.overflow) {
+          completed = true;
+          window.learn2k?.complete({ success: true });
+        }
+      }
+
+      function convert(byStudent = true) {
+        const n = Number(cifreInput.value);
+        const d = Number(decimaliInput.value);
+        if (!Number.isInteger(n) || n < 1 || n > 31) {
+          setStatus('Le cifre totali vanno da 1 a 31.', 'error');
+          result.hidden = true;
+          return;
+        }
+        if (!Number.isInteger(d) || d < 0 || d > n) {
+          setStatus('Le cifre decimali vanno da 0 al numero di cifre totali.', 'error');
+          result.hidden = true;
+          return;
+        }
+        const value = parseValue(valoreInput.value);
+        if (!value) {
+          setStatus('Scrivi un numero, per esempio -42.5: cifre, un segno e un punto decimale.', 'error');
+          result.hidden = true;
+          return;
+        }
+        const declaration = `packed(${n}:${d})`;
+        const intDigits = n - d;
+        if (byStudent) window.learn2k?.interacted('converti', `${declaration} ${valoreInput.value.trim()}`);
+
+        if (value.intPart.length > intDigits) {
+          goals.overflow = true;
+          updateGoals();
+          result.hidden = true;
+          setStatus(
+            `Il valore ha ${value.intPart.length} cifre intere, ma ${declaration} ne ha ${intDigits}. ` +
+              'In RPG questa assegnazione ferma il programma con l\'errore 00103.',
+            'error',
+          );
+          return;
+        }
+
+        const truncated = value.fracPart.replace(/0+$/, '').length > d;
+        const frac = value.fracPart.slice(0, d).padEnd(d, '0');
+        const digits = value.intPart.padStart(intDigits, '0') + frac;
+        const isZero = /^0*$/.test(digits);
+        const negative = value.negative && !isZero;
+        if (negative) goals.negativo = true;
+
+        const shown =
+          (negative ? '-' : '') +
+          (value.intPart === '' ? '0' : value.intPart) +
+          (d > 0 ? '.' + frac : '');
+
+        document.getElementById('dichiarazione').innerHTML = '';
+        const code = document.createElement('code');
+        code.textContent = `dcl-s numero ${declaration} inz(${shown});`;
+        document.getElementById('dichiarazione').append(code);
+
+        const packed = packedBytes(digits, negative);
+        document.getElementById('packed-summary').textContent =
+          `${packed.bytes.length} byte: ${n} cifre più il segno, due mezze cifre per byte` +
+          (packed.padded ? ', con uno zero in testa per completare il primo byte.' : '.');
+        fillBytes(document.getElementById('packed-bytes'), packed.bytes);
+        const nibbleDigits = (packed.padded ? '0' : '') + digits;
+        fillTable(
+          document.getElementById('packed-table'),
+          packed.bytes.map((b, i) => {
+            const isLast = i === packed.bytes.length - 1;
+            const first = nibbleDigits[i * 2];
+            const text = isLast
+              ? `cifra ${first} e segno ${b[1]} (${negative ? 'negativo' : 'positivo'})`
+              : `cifre ${first} e ${nibbleDigits[i * 2 + 1]}`;
+            return [String(i + 1), b, text];
+          }),
+        );
+
+        const zoned = zonedBytes(digits, negative);
+        document.getElementById('zoned-summary').textContent =
+          `${zoned.length} byte: una cifra per byte, con la zona F davanti a ogni cifra.`;
+        fillBytes(document.getElementById('zoned-bytes'), zoned);
+        fillTable(
+          document.getElementById('zoned-table'),
+          zoned.map((b, i) => {
+            const isLast = i === zoned.length - 1;
+            const text = isLast
+              ? `zona ${b[0]} (${negative ? 'negativo' : 'positivo'}) e cifra ${b[1]}`
+              : `zona F e cifra ${b[1]}`;
+            return [String(i + 1), b, text];
+          }),
+        );
+
+        result.hidden = false;
+        updateGoals();
+        const message =
+          `Memorizzato ${shown}: ${packed.bytes.length} byte impaccati (${packed.bytes.join(' ')}), ` +
+          `${zoned.length} byte zonati (${zoned.join(' ')}).` +
+          (truncated ? ' Le cifre decimali in più sono state troncate, come fa RPG senza eval(h).' : '');
+        setStatus(message, completed ? 'done' : '');
+      }
+
+      document.getElementById('converti').addEventListener('click', () => convert());
+      valoreInput.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter') convert();
+      });
+      document.querySelectorAll('[data-value]').forEach((button) => {
+        button.addEventListener('click', () => {
+          valoreInput.value = button.dataset.value;
+          convert();
+        });
+      });
+      convert(false);
+    </script>
+  </body>
+</html>

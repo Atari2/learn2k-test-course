@@ -1,0 +1,8 @@
+id: procedure-e-moduli
+title: Procedure e programmi di servizio
+description: Dividere il codice in procedure, riusarlo con i programmi di servizio e gestire gli errori.
+objectives:
+  - Scrivere procedure con parametri e valore di ritorno
+  - Chiamare un altro programma attraverso un prototipo
+  - Raccogliere procedure in un programma di servizio e usarle da altri programmi
+  - Intercettare e gestire gli errori durante l'esecuzione

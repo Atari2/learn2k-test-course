@@ -1,0 +1,229 @@
+---
+id: aggiornare-i-dati
+title: Scrivere, aggiornare e cancellare
+duration: 30
+objectives:
+  - Scrivere, aggiornare e cancellare record gestendo i blocchi
+  - Gestire le chiavi duplicate e i record bloccati da altri lavori
+prerequisites: [lettura-per-chiave]
+tags: [database, io-nativo]
+level: intermediate
+---
+
+Leggere è metà del lavoro: un gestionale crea ordini, aggiorna saldi e cancella righe.
+Le istruzioni native per farlo sono tre, `write`, `update` e `delete`, e la cosa da capire
+bene è il **blocco dei record**.
+
+## Dichiarare che cosa si farà
+
+Un file si apre con le operazioni che il programma farà, e solo quelle sono permesse:
+
+```text
+dcl-f clienti usage(*update : *output : *delete) keyed;
+```
+
+`*update` permette di leggere e aggiornare, `*output` di scrivere record nuovi, `*delete` di
+cancellare. Un programma che apre un file solo in lettura non può modificarlo per sbaglio.
+
+## Aggiornare un record
+
+```text title="ACCREDITA.RPGLE" showLineNumbers {8,11}
+**FREE
+ctl-opt dftactgrp(*no) actgrp(*new);
+
+dcl-f clienti usage(*update : *output) keyed;
+
+dcl-s codiceRichiesto char(6) inz('C00042');
+
+chain codiceRichiesto clienti;
+if %found(clienti);
+  saldo += 250.00;
+  update clientir;
+else;
+  clear clientir;
+  codice = codiceRichiesto;
+  nome = 'Nuovo cliente';
+  saldo = 250.00;
+  write clientir;
+endif;
+
+*inlr = *on;
+return;
+```
+
+- In un file aperto con `*update`, `chain` legge il record e lo **blocca**: nessun altro lavoro
+  può modificarlo finché il programma non lo rilascia.
+- `update` riscrive il record letto per ultimo con i valori attuali delle variabili, e lo
+  sblocca. Vuole il nome del **formato record**, `clientir`, non quello del file.
+- `write` aggiunge un record nuovo con i valori delle variabili, e anche lui vuole il formato
+  record. `clear clientir` azzera prima tutti i campi del formato: senza, il record nuovo
+  avrebbe la città del cliente letto prima.
+
+Per aggiornare solo alcuni campi, e lasciare gli altri come sono nel file, si usa `%fields`:
+
+```text
+update clientir %fields(saldo);
+```
+
+## Cancellare un record
+
+```text
+dcl-f clienti usage(*update : *delete) keyed;
+
+delete 'C00099' clienti;
+if not %found(clienti);
+  dsply 'Cliente inesistente';
+endif;
+```
+
+`delete` con una chiave cerca il record e lo cancella, e imposta `%found`. Senza chiave,
+`delete clientir;` cancella il record letto per ultimo.
+
+## I blocchi dei record
+
+Su IBM i molti lavori usano gli stessi file nello stesso momento. Quando un programma legge
+un record da un file aperto per l'aggiornamento, il sistema lo blocca fino a quando il
+programma:
+
+- lo aggiorna con `update` o lo cancella con `delete`;
+- legge un altro record dallo stesso file;
+- lo rilascia con `unlock clienti;`;
+- chiude il file o termina.
+
+Se un altro lavoro prova a leggere per l'aggiornamento un record bloccato, aspetta. Dopo un
+certo tempo, 60 secondi se il file non dice diversamente, l'istruzione fallisce con lo stato
+`01218`:
+
+```text
+chain(e) codiceRichiesto clienti;
+if %error() and %status(clienti) = 01218;
+  dsply 'Cliente in uso da un altro lavoro, riprova';
+elseif %found(clienti);
+  saldo += 250.00;
+  update clientir;
+endif;
+```
+
+Se ti serve solo **leggere** un record da un file aperto per l'aggiornamento, usa
+l'estensione `(n)`, che non mette il blocco:
+
+```text
+chain(n) codiceRichiesto clienti;
+```
+
+Un record letto con `(n)` non si può aggiornare: per aggiornarlo va riletto senza `(n)`.
+
+<Callout type="warning" title="Non bloccare mentre aspetti l'utente">
+  Un programma interattivo che legge un record per l'aggiornamento e poi mostra una videata
+  tiene il record bloccato finché l'utente non risponde, magari dopo la pausa caffè. Leggi
+  con `(n)` per mostrare i dati, e rileggi con il blocco solo al momento di salvare,
+  controllando che nel frattempo nessuno li abbia cambiati.
+</Callout>
+
+## Chiavi duplicate
+
+Se il file ha la chiave `UNIQUE` (o è una tabella con una chiave primaria) e scrivi un record
+con una chiave che esiste già, `write` fallisce con lo stato `01021`. Due modi per gestirlo:
+
+```text
+setll codiceNuovo clienti;
+if %equal(clienti);
+  dsply 'Codice già usato';
+else;
+  write clientir;
+endif;
+```
+
+oppure, lasciando decidere al database:
+
+```text
+write(e) clientir;
+if %error() and %status(clienti) = 01021;
+  dsply 'Codice già usato';
+endif;
+```
+
+Il secondo modo è più robusto: tra il controllo con `setll` e la `write`, un altro lavoro
+potrebbe aver scritto lo stesso codice.
+
+<Callout type="note" title="Le transazioni">
+  Per aggiornare più file in modo che le modifiche riescano tutte o nessuna, IBM i offre il
+  **controllo del commit**: i file devono essere registrati in un giornale (*journal*), il
+  programma li dichiara con la parola chiave `commit` e conferma le modifiche con `commit` o
+  le annulla con `rolbk`. È un argomento da approfondire dopo questo corso.
+</Callout>
+
+<Callout type="try">
+  1. Compila `ACCREDITA` ed eseguilo due volte: la prima crea il cliente, la seconda ne
+     aggiorna il saldo.
+  2. Togli `clear clientir` e crea un cliente nuovo dopo averne letto un altro: guarda la sua
+     città.
+  3. Apri due sessioni 5250. Nella prima esegui un programma che legge un cliente per
+     l'aggiornamento e poi si ferma su un `dsply`; nella seconda prova ad aggiornare lo stesso
+     cliente.
+</Callout>
+
+## Verifica
+
+<Quiz id="quiz-aggiornare-i-dati" title="Scrivere, aggiornare e cancellare" attempts={3}>
+  <Question id="update-formato" type="single" objectives={["scrittura-file"]} explanation="Con un file descritto esternamente `update` e `write` vogliono il nome del formato record.">
+    Il file `CLIENTI` ha il formato record `CLIENTIR`. Quale istruzione aggiorna il record letto?
+
+    <Option correct>`update clientir;`</Option>
+    <Option explanation="`update` vuole il formato record, non il file.">`update clienti;`</Option>
+    <Option explanation="`write` aggiunge un record nuovo.">`write clientir;`</Option>
+  </Question>
+
+  <Question id="lettura-senza-blocco" type="fill" objectives={["scrittura-file"]} explanation="L'estensione `(n)` legge senza bloccare il record.">
+    Completa la lettura di un cliente, da un file aperto per l'aggiornamento, **senza** bloccare
+    il record: `chain(<Blank answer="n" ignoreCase label="estensione" width={3} />) codice clienti;`
+  </Question>
+
+  <Question id="rilascio-blocco" type="multiple" objectives={["scrittura-file"]} explanation="Il blocco si rilascia con `update`, `delete`, `unlock`, con una nuova lettura dallo stesso file o chiudendo il file. `dsply` non c'entra.">
+    Un record è stato letto con `chain` da un file aperto con `*update`. Quali istruzioni lo
+    sbloccano?
+
+    <Option correct>`update clientir;`</Option>
+    <Option correct>`unlock clienti;`</Option>
+    <Option correct>`delete clientir;`</Option>
+    <Option explanation="Mostrare un messaggio non rilascia il blocco: anzi, lo tiene finché l'utente non risponde.">`dsply 'Fatto';`</Option>
+  </Question>
+
+  <Question id="chiave-duplicata" type="fill" objectives={["scrittura-file"]} explanation="`01021` indica una chiave duplicata, `01218` un record bloccato da un altro lavoro.">
+    Una `write` su un file con chiave `UNIQUE` fallisce con lo stato
+    <Blank answer="01021" label="stato della chiave duplicata" />; una `chain` su un record
+    bloccato da un altro lavoro con lo stato <Blank answer="01218" label="stato del record bloccato" />.
+  </Question>
+
+  <Question id="write-senza-clear" type="find-error" objectives={["scrittura-file"]} explanation="Alla riga 6, prima di impostare i campi del cliente nuovo, serve `clear clientir;`: altrimenti `citta` e gli altri campi non impostati restano quelli del record letto prima.">
+    Il cliente nuovo viene scritto con la città di un altro cliente. Quale riga andrebbe
+    preceduta da `clear clientir;`?
+
+    ```text showLineNumbers error={6}
+    chain codiceRichiesto clienti;
+    if %found(clienti);
+      saldo += importo;
+      update clientir;
+    else;
+      codice = codiceRichiesto;
+      nome = nomeNuovo;
+      saldo = importo;
+      write clientir;
+    endif;
+    ```
+  </Question>
+</Quiz>
+
+## Come ti senti?
+
+<Checkpoint id="checkpoint-file-di-database">
+  <Objective id="file-e-formati" review="./01-file-e-tabelle.mdx">
+    Descrivere file fisici, file logici e formati record, e dichiararli in un programma
+  </Objective>
+  <Objective id="lettura-file" review="./02-lettura-per-chiave.mdx">
+    Leggere un file in sequenza e per chiave
+  </Objective>
+  <Objective id="scrittura-file" review="#i-blocchi-dei-record">
+    Scrivere, aggiornare e cancellare record gestendo i blocchi
+  </Objective>
+</Checkpoint>

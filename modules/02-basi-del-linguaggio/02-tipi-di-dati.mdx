@@ -1,0 +1,210 @@
+---
+id: tipi-di-dati
+title: Variabili, costanti e tipi di dati
+duration: 30
+objectives:
+  - Dichiarare variabili e costanti scegliendo il tipo di dati adatto
+  - Spiegare come sono memorizzati i numeri impaccati e zonati
+prerequisites: [primo-programma]
+tags: [sintassi, tipi]
+level: beginner
+---
+
+RPG è un linguaggio a **tipizzazione statica**: ogni variabile ha un tipo e una lunghezza
+decisi nella dichiarazione, che non cambiano più. La lunghezza, in particolare, fa parte del
+tipo: un testo di 10 caratteri e uno di 20 sono tipi diversi.
+
+## Dichiarare una variabile
+
+Una variabile semplice si dichiara con `dcl-s`, seguito dal nome, dal tipo e da eventuali
+parole chiave:
+
+```text
+dcl-s cliente char(6);
+dcl-s ragioneSociale varchar(50) inz('Rossi Srl');
+dcl-s saldo packed(11:2);
+dcl-s righe int(10) inz(0);
+dcl-s trovato ind;
+```
+
+- I nomi cominciano con una lettera e possono contenere lettere, cifre e trattini bassi. RPG
+  ammette anche `#`, `@` e `$`, ma meglio evitarli: in EBCDIC cambiano a seconda della lingua
+  del sistema.
+- `inz` dà il **valore iniziale**. Senza `inz`, un testo vale spazi e un numero vale zero.
+- Le variabili dichiarate in cima al sorgente sono **globali**: le vede tutto il programma.
+
+## I tipi di dati
+
+| Dichiarazione | Contenuto | Byte occupati |
+| ------------- | --------- | ------------- |
+| `char(10)` | testo di esattamente 10 caratteri, completato con spazi | 10 |
+| `varchar(10)` | testo da 0 a 10 caratteri, con la sua lunghezza attuale | 12 |
+| `packed(7:2)` | numero decimale di 7 cifre, di cui 2 decimali, impaccato | 4 |
+| `zoned(7:2)` | numero decimale di 7 cifre, di cui 2 decimali, zonato | 7 |
+| `int(10)` | intero con segno, da -2.147.483.648 a 2.147.483.647 | 4 |
+| `uns(5)` | intero senza segno, da 0 a 65.535 | 2 |
+| `float(8)` | numero in virgola mobile a doppia precisione | 8 |
+| `ind` | indicatore: `*on` (`'1'`) o `*off` (`'0'`) | 1 |
+| `date` | una data | 10 in formato `*ISO` |
+| `time` | un'ora | 8 in formato `*ISO` |
+| `timestamp` | data e ora con i microsecondi | 26 |
+
+Per gli interi si sceglie il numero di cifre: `int(3)`, `int(5)`, `int(10)` e `int(20)`
+occupano 1, 2, 4 e 8 byte. Lo stesso vale per `uns`.
+
+## Testi fissi e variabili
+
+Un `char` ha sempre la sua lunghezza: se gli assegni un testo più corto, il resto si riempie
+di spazi; se è più lungo, viene troncato a destra. Un `varchar` ricorda invece quanti
+caratteri contiene davvero, in due byte in più all'inizio.
+
+```text
+dcl-s fisso char(10);
+dcl-s variabile varchar(10);
+
+fisso = 'Ada';        // 'Ada       ': 10 caratteri
+variabile = 'Ada';    // 'Ada': 3 caratteri
+```
+
+Per questo, quando concateni un `char`, quasi sempre ti serve `%trim` per togliere gli spazi
+in coda. Con un `varchar` non serve.
+
+## I numeri decimali
+
+I programmi gestionali contano soldi e quantità, e per questo RPG usa soprattutto numeri
+**decimali a virgola fissa**: `packed(11:2)` è un numero di 11 cifre, di cui 2 dopo la
+virgola, cioè fino a 999.999.999,99. Il calcolo è esatto: `0.1 + 0.2` fa `0.3`, senza gli
+errori di arrotondamento dei numeri in virgola mobile.
+
+Nel codice il separatore decimale è sempre il **punto**: `inz(12.50)`.
+
+Esistono due formati, che contengono gli stessi valori ma li memorizzano in modo diverso:
+
+- **impaccato** (`packed`): due cifre per byte, con il segno nell'ultima mezza cifra. È il
+  formato delle colonne `DECIMAL` di Db2 for i e il più usato per i calcoli;
+- **zonato** (`zoned`): una cifra per byte, come un testo. È il formato delle colonne
+  `NUMERIC` e dei vecchi file a lunghezza fissa.
+
+Prova a scrivere qualche valore nel simulatore e guarda i byte che RPG scrive in memoria. Il
+simulatore è completato quando hai provato un numero negativo e un numero che non entra nel
+campo.
+
+<Simulator id="numeri-impaccati-e-zonati" title="Numeri impaccati e zonati" height={720} />
+
+## Quando un numero non entra
+
+Se il risultato di un'assegnazione ha troppe cifre **intere** per la variabile, il programma
+si ferma con un errore (lo stato `00103`): RPG preferisce fermarsi piuttosto che salvare un
+importo sbagliato. Le cifre **decimali** in più, invece, vengono troncate senza errore; per
+arrotondarle si usa `eval(h)`, con la `h` di *half adjust*:
+
+```text
+dcl-s prezzo packed(7:2);
+
+prezzo = 10 / 3;          // 3.33: il resto viene troncato
+eval(h) prezzo = 20 / 3;  // 6.67: arrotondato
+prezzo = 1000000;         // errore: 7 cifre intere in un campo che ne ha 5
+```
+
+## Costanti e valori speciali
+
+Una **costante** si dichiara con `dcl-c` e non si può modificare:
+
+```text
+dcl-c ALIQUOTA_IVA 22;
+dcl-c AZIENDA 'Rossi Srl';
+```
+
+RPG ha anche alcune **costanti figurative**, che valgono per qualunque tipo e lunghezza:
+
+| Costante | Significato |
+| -------- | ----------- |
+| `*blanks` | tutti spazi |
+| `*zeros` | tutti zeri |
+| `*on`, `*off` | `'1'` e `'0'`, per gli indicatori |
+| `*hival`, `*loval` | il valore più alto e più basso del tipo |
+
+```text
+cliente = *blanks;
+saldo = *zeros;
+trovato = *off;
+```
+
+## Date e ore
+
+Le date sono un tipo vero, non testi o numeri: il compilatore controlla che siano valide e
+le funzioni incorporate le sanno sommare e confrontare.
+
+```text
+dcl-s oggi date inz(*sys);
+dcl-s scadenza date;
+dcl-s natale date inz(d'2026-12-25');
+
+scadenza = oggi + %days(30);
+```
+
+- `inz(*sys)` inizializza con la data del sistema all'avvio del programma.
+- `d'2026-12-25'` è una data scritta nel codice: `t'14.30.00'` è un'ora, `z'…'` un timestamp.
+- Il formato predefinito è `*ISO` (`aaaa-mm-gg`). Altri formati, come `*EUR` (`gg.mm.aaaa`),
+  si chiedono nella dichiarazione, `date(*eur)`, o per tutto il programma con
+  `ctl-opt datfmt(*eur)`.
+
+## Dichiarare come un'altra variabile
+
+`like` dichiara una variabile con lo stesso tipo di un'altra. Se un giorno l'originale si
+allunga, si allungano anche le copie:
+
+```text
+dcl-s saldo packed(11:2);
+dcl-s saldoPrecedente like(saldo);
+```
+
+<Callout type="try">
+  1. Dichiara una variabile `packed(5:2)` e assegnale `123.456`: con `dsply` e `%char` guarda
+     che cosa contiene.
+  2. Ripeti con `eval(h)`.
+  3. Assegnale `1234`: il programma si ferma. Leggi il messaggio con <kbd>F1</kbd>.
+</Callout>
+
+## Verifica
+
+<Quiz id="quiz-tipi-di-dati" title="Tipi di dati" attempts={3}>
+  <Question id="scelta-tipo-importo" type="single" objectives={["dichiarazioni-e-tipi"]} explanation="`packed(9:2)` ha 7 cifre intere e 2 decimali: arriva a 9.999.999,99.">
+    Quale dichiarazione può contenere l'importo 1.250.000,50?
+
+    <Option correct>`packed(9:2)`</Option>
+    <Option explanation="`packed(7:2)` ha solo 5 cifre intere: arriva a 99.999,99.">`packed(7:2)`</Option>
+    <Option explanation="Un intero non ha decimali: i 50 centesimi andrebbero persi.">`int(10)`</Option>
+    <Option explanation="`zoned(5:2)` ha solo 3 cifre intere.">`zoned(5:2)`</Option>
+  </Question>
+
+  <Question id="byte-packed" type="fill" objectives={["dichiarazioni-e-tipi"]} explanation="Due cifre per byte più il segno: 9 cifre e il segno sono 10 mezze cifre, cioè 5 byte.">
+    Una variabile `packed(9:2)` occupa <Blank answer={5} label="byte" /> byte, una
+    `zoned(9:2)` ne occupa <Blank answer={9} label="byte del zonato" />.
+  </Question>
+
+  <Question id="char-con-spazi" type="true-false" answer={true} objectives={["dichiarazioni-e-tipi"]} explanation="Un `char` ha sempre la sua lunghezza: il resto si riempie di spazi.">
+    Dopo `nome = 'Ada'`, una variabile `char(10)` contiene `Ada` seguito da 7 spazi.
+  </Question>
+
+  <Question id="troppe-cifre-intere" type="single" objectives={["dichiarazioni-e-tipi"]} explanation="Con troppe cifre intere l'assegnazione fallisce con lo stato `00103`; solo i decimali in più vengono troncati.">
+    Che cosa succede con `totale = 123456;` se `totale` è `packed(5:0)`?
+
+    <Option correct>Il programma si ferma con un errore</Option>
+    <Option explanation="Le cifre intere non vengono mai troncate in un'assegnazione con un'espressione.">`totale` vale `23456`</Option>
+    <Option>`totale` vale `99999`</Option>
+  </Question>
+
+  <Question id="costante-modificata" type="find-error" objectives={["dichiarazioni-e-tipi"]} explanation="`ALIQUOTA` è una costante, dichiarata con `dcl-c`: non si può assegnare.">
+    Questo codice non si compila. Quale riga contiene l'errore?
+
+    ```text showLineNumbers error={6}
+    dcl-c ALIQUOTA 22;
+    dcl-s imponibile packed(9:2) inz(100);
+    dcl-s iva packed(9:2);
+
+    iva = imponibile * ALIQUOTA / 100;
+    ALIQUOTA = 10;
+    ```
+  </Question>
+</Quiz>

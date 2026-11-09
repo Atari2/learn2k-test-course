@@ -1,0 +1,185 @@
+---
+id: array
+title: Gli array
+duration: 25
+objectives:
+  - Dichiarare array, scorrerli e cercarvi un valore
+  - Usare array di strutture dati
+prerequisites: [strutture-dati]
+tags: [array]
+level: beginner
+---
+
+Un **array** è una sequenza di elementi dello stesso tipo, a cui si accede con un indice. In
+RPG si dichiara aggiungendo `dim` a una variabile o a una struttura.
+
+## Dichiarare e usare un array
+
+```text showLineNumbers
+dcl-s mesi char(9) dim(12);
+dcl-s vendite packed(11:2) dim(12) inz(0);
+dcl-s totale packed(13:2);
+dcl-s i int(10);
+
+mesi(1) = 'Gennaio';
+mesi(2) = 'Febbraio';
+vendite(1) = 1250.00;
+
+for i = 1 to %elem(vendite);
+  totale += vendite(i);
+endfor;
+```
+
+- `dim(12)` dice quanti elementi ha l'array: il numero è fissato quando compili.
+- L'indice va tra **parentesi tonde** e il **primo elemento è il numero 1**, non 0.
+- `%elem(vendite)` restituisce il numero di elementi, 12: usalo nei cicli invece di
+  scrivere il numero, così il ciclo resta giusto se un giorno cambi `dim`.
+
+<Callout type="warning" title="Fuori dai limiti">
+  Un indice minore di 1 o maggiore del numero di elementi ferma il programma con lo stato
+  `00121`. RPG controlla sempre gli indici: non leggerai mai per sbaglio la memoria che sta
+  dopo l'array.
+</Callout>
+
+## Operazioni sull'intero array
+
+Alcune istruzioni lavorano su tutti gli elementi in una volta:
+
+```text
+vendite = 0;                        // azzera tutti gli elementi
+clear mesi;                         // tutti gli elementi a spazi
+sorta mesi;                         // ordina in modo crescente
+totale = %xfoot(vendite);           // somma di tutti gli elementi
+```
+
+`%subarr` indica una parte dell'array, da un elemento per un certo numero di elementi:
+`%xfoot(%subarr(vendite : 1 : 3))` è il totale del primo trimestre.
+
+## Cercare un valore
+
+`%lookup` cerca un valore e restituisce l'indice del primo elemento uguale, oppure 0 se non
+lo trova:
+
+```text
+dcl-s posizione int(10);
+
+posizione = %lookup('Marzo' : mesi);
+if posizione = 0;
+  dsply 'Mese non trovato';
+else;
+  dsply ('Marzo è il mese numero ' + %char(posizione));
+endif;
+```
+
+Le varianti `%lookuplt`, `%lookuple`, `%lookupge` e `%lookupgt` cercano in un array ordinato
+l'elemento più vicino al valore, minore, minore o uguale, maggiore o uguale o maggiore. L'array
+va dichiarato con la parola chiave `ascend` (o `descend`), che dice al compilatore in che
+ordine sono i dati ma non li ordina: l'ordine lo garantisci tu, per esempio con `sorta`.
+
+```text
+dcl-s soglie packed(9:2) dim(4) ascend;
+dcl-s fascia int(10);
+
+soglie(1) = 1000;
+soglie(2) = 5000;
+soglie(3) = 20000;
+soglie(4) = 100000;
+
+fascia = %lookupge(3200 : soglie);   // 2: la prima soglia maggiore o uguale a 3200
+```
+
+## Array di strutture dati
+
+Con `dim` su una struttura qualificata ottieni un array di strutture, come le righe di un
+ordine. L'indice va dopo il nome della struttura:
+
+```text showLineNumbers
+dcl-ds righe qualified dim(50) inz;
+  articolo char(10);
+  quantita int(10);
+  prezzo packed(9:2);
+end-ds;
+dcl-s numeroRighe int(10);
+dcl-s totaleOrdine packed(13:2);
+dcl-s i int(10);
+
+numeroRighe = 2;
+righe(1).articolo = 'TV55OLED';
+righe(1).quantita = 1;
+righe(1).prezzo = 899.00;
+righe(2).articolo = 'CAVOHDMI';
+righe(2).quantita = 3;
+righe(2).prezzo = 9.90;
+
+for i = 1 to numeroRighe;
+  totaleOrdine += righe(i).quantita * righe(i).prezzo;
+endfor;
+```
+
+L'array ha 50 posti, ma l'ordine ne usa 2: per questo il programma tiene il conto delle righe
+usate in `numeroRighe` e il ciclo si ferma lì, non a `%elem(righe)`.
+
+<Callout type="note" title="Il numero di elementi è fisso">
+  In RPG la dimensione di un array si sceglie quando si compila. Per un numero di righe che
+  non conosci in anticipo si dichiara un array abbastanza grande e si tiene il conto degli
+  elementi usati, come in questo esempio, oppure si leggono i dati un po' alla volta dal
+  database.
+</Callout>
+
+<Callout type="try">
+  1. Riempi un array di 12 importi mensili e calcola la media dei mesi diversi da zero.
+  2. Trova con `%lookup` il primo mese senza vendite.
+  3. Prova a leggere `vendite(13)` e leggi il messaggio d'errore.
+</Callout>
+
+## Verifica
+
+<Quiz id="quiz-array" title="Gli array" attempts={3}>
+  <Question id="primo-indice" type="single" objectives={["array-rpg"]} explanation="In RPG il primo elemento di un array ha indice 1.">
+    Qual è l'indice del primo elemento di un array RPG?
+
+    <Option correct>1</Option>
+    <Option>0</Option>
+    <Option explanation="L'indice non dipende dal tipo degli elementi.">Dipende dal tipo degli elementi</Option>
+  </Question>
+
+  <Question id="lookup-assente" type="fill" objectives={["array-rpg"]} explanation="Se il valore non c'è, `%lookup` restituisce 0. `%elem` restituisce il numero di elementi dichiarati con `dim`.">
+    Con `dcl-s mesi char(9) dim(12);` e senza nessun elemento uguale a `Brumaio`,
+    `%lookup('Brumaio' : mesi)` vale <Blank answer={0} label="risultato di lookup" /> e
+    `%elem(mesi)` vale <Blank answer={12} label="risultato di elem" />.
+  </Question>
+
+  <Question id="indice-ds" type="single" objectives={["array-rpg"]} explanation="In un array di strutture l'indice va dopo il nome della struttura, prima del punto.">
+    `righe` è una struttura qualificata con `dim(50)`. Come si scrive la quantità della terza
+    riga?
+
+    <Option correct>`righe(3).quantita`</Option>
+    <Option>`righe.quantita(3)`</Option>
+    <Option>`righe[3].quantita`</Option>
+  </Question>
+
+  <Question id="fuori-limiti" type="find-error" objectives={["array-rpg"]} explanation="Alla riga 5 il ciclo arriva a 13, ma l'array ha 12 elementi: l'ultimo giro ferma il programma con lo stato `00121`. Usa `%elem(vendite)`.">
+    Questo programma si ferma con un errore. Quale riga lo causa?
+
+    ```text showLineNumbers error={5}
+    dcl-s vendite packed(11:2) dim(12) inz(0);
+    dcl-s totale packed(13:2);
+    dcl-s i int(10);
+
+    for i = 1 to 13;
+      totale += vendite(i);
+    endfor;
+    ```
+  </Question>
+</Quiz>
+
+## Come ti senti?
+
+<Checkpoint id="checkpoint-strutture-dati-e-array">
+  <Objective id="strutture-dati-rpg" review="./01-strutture-dati.mdx">
+    Dichiarare e usare strutture dati qualificate, modelli e sottocampi sovrapposti
+  </Objective>
+  <Objective id="array-rpg" review="#dichiarare-e-usare-un-array">
+    Dichiarare array, scorrerli e cercarvi un valore
+  </Objective>
+</Checkpoint>

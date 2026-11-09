@@ -1,0 +1,206 @@
+---
+id: lettura-per-chiave
+title: Leggere per chiave
+duration: 35
+objectives:
+  - Leggere un record per chiave con CHAIN
+  - Leggere tutti i record con la stessa chiave con SETLL e READE
+  - Usare %FOUND, %EQUAL ed %EOF per controllare l'esito di ogni istruzione
+prerequisites: [file-e-tabelle]
+tags: [database, io-nativo]
+level: intermediate
+---
+
+Leggere un file dall'inizio alla fine serve di rado. Molto più spesso un programma cerca un
+cliente per codice, o legge tutti gli ordini di un cliente: per questo usa la **chiave** del
+file, e un piccolo insieme di istruzioni che spostano il **cursore** del file.
+
+Gli esempi usano il file `ORDINI`, con la chiave `CLIENTE` e poi `NUMERO`:
+
+```text title="QDDSSRC, membro ORDINI (tipo PF)"
+     A          R ORDINIR
+     A            NUMERO         7S 0
+     A            CLIENTE        6A
+     A            DATAORD         L
+     A            IMPORTO       11P 2
+     A          K CLIENTE
+     A          K NUMERO
+```
+
+## CHAIN: un record per chiave
+
+`chain` cerca il primo record con la chiave indicata e, se lo trova, lo legge:
+
+```text
+dcl-f clienti keyed;
+
+chain 'C00042' clienti;
+if %found(clienti);
+  dsply ('Saldo di ' + %trim(nome) + ': ' + %char(saldo));
+else;
+  dsply 'Cliente inesistente';
+endif;
+```
+
+- `%found(clienti)` è acceso se il record esiste. Se non esiste, le variabili del record **non
+  cambiano**: contengono ancora i valori del record letto prima, per questo va sempre
+  controllato `%found`.
+- Dopo una `chain` riuscita, una `read` legge il record successivo nell'ordine della chiave.
+- Dopo una `chain` senza risultato, il file va riposizionato prima di una nuova lettura.
+
+## Chiavi composte
+
+Quando la chiave ha più campi, i valori si scrivono tra parentesi, separati dai due punti,
+nell'ordine dei campi della chiave:
+
+```text
+dcl-f ordini keyed;
+
+chain ('C00042' : 1005) ordini;
+```
+
+Si possono anche indicare solo i primi campi della chiave: `chain 'C00042' ordini;` legge il
+primo ordine del cliente, quello con il numero più basso.
+
+Un'alternativa è `%kds`, che prende i valori della chiave da una struttura dati. La struttura
+si dichiara di solito con `likerec`, che copia i campi chiave del formato record:
+
+```text
+dcl-ds chiaveOrdine likerec(ordinir : *key);
+
+chiaveOrdine.cliente = 'C00042';
+chiaveOrdine.numero = 1005;
+chain %kds(chiaveOrdine) ordini;
+```
+
+## SETLL e READE: tutti i record di una chiave
+
+Per leggere tutti gli ordini di un cliente servono due istruzioni:
+
+```text title="ORDINICLI.RPGLE" showLineNumbers {9-14}
+**FREE
+ctl-opt dftactgrp(*no) actgrp(*new);
+
+dcl-f ordini keyed;
+
+dcl-s cercato char(6) inz('C00042');
+dcl-s totale packed(13:2);
+
+setll cercato ordini;
+reade cercato ordini;
+dow not %eof(ordini);
+  totale += importo;
+  reade cercato ordini;
+enddo;
+
+dsply ('Totale ordini: ' + %char(totale));
+
+*inlr = *on;
+return;
+```
+
+- `setll` (*set lower limit*) posiziona il file **prima** del primo record con chiave maggiore
+  o uguale a quella indicata. **Non legge** niente: sposta solo il cursore.
+- `reade` (*read equal*) legge il record successivo **solo se** ha la stessa chiave. Quando il
+  record successivo ha un'altra chiave, o il file è finito, accende `%eof(ordini)`.
+- Il ciclo è lo stesso schema di `read`: la prima lettura prima del ciclo, la successiva in
+  fondo.
+
+`setll` imposta anche due indicatori, utili da soli: `%found` è acceso se esiste un record con
+chiave maggiore o uguale, `%equal` se esiste un record con **la stessa** chiave. Per sapere
+se un cliente ha ordini, senza leggerli, basta:
+
+```text
+setll cercato ordini;
+if %equal(ordini);
+  dsply 'Il cliente ha ordini';
+endif;
+```
+
+## Le altre istruzioni
+
+| Istruzione | Effetto | Indicatori |
+| ---------- | ------- | ---------- |
+| `read` | legge il record successivo | `%eof` alla fine del file |
+| `readp` | legge il record precedente | `%eof` all'inizio del file |
+| `reade chiave` | legge il successivo, se ha quella chiave | `%eof` se non ce l'ha |
+| `readpe chiave` | legge il precedente, se ha quella chiave | `%eof` se non ce l'ha |
+| `chain chiave` | cerca e legge il primo record con quella chiave | `%found` |
+| `setll chiave` | si posiziona prima del primo record con chiave maggiore o uguale | `%found`, `%equal` |
+| `setgt chiave` | si posiziona dopo l'ultimo record con quella chiave | `%found` |
+
+Al posto della chiave, `setll` accetta anche `*start` e `*end`: `setll *start ordini;`
+riporta il file all'inizio, `setll *end ordini;` alla fine, da cui si legge all'indietro con
+`readp`.
+
+## Prova le istruzioni
+
+Nel simulatore il file `ORDINI` ha sette record. Scegli una chiave e prova le istruzioni:
+guarda dove finisce il cursore, quali indicatori cambiano e quando le variabili non
+cambiano. Il simulatore è completato quando hai fatto una `chain` che non trova il record e
+hai letto tutti gli ordini di un cliente con `setll` e `reade`.
+
+<Simulator id="leggere-un-file-per-chiave" title="Leggere un file per chiave" height={780} wide />
+
+<Callout type="warning" title="Dopo la fine del file">
+  Dopo che `read`, `reade` o `readp` hanno acceso `%eof`, o dopo una `chain` che non ha
+  trovato il record, il file va **riposizionato** con `setll`, `setgt` o `chain` prima di
+  leggere di nuovo.
+</Callout>
+
+<Callout type="try">
+  1. Crea il file `ORDINI` e inserisci qualche ordine per due clienti.
+  2. Compila `ORDINICLI` e controlla il totale di un cliente.
+  3. Cambia il programma perché mostri anche il numero di ordini del cliente.
+  4. Usa `setgt` e `readpe` per mostrare l'ultimo ordine del cliente, quello con il numero
+     più alto.
+</Callout>
+
+## Verifica
+
+<Quiz id="quiz-lettura-per-chiave" title="Leggere per chiave" attempts={3}>
+  <Question id="setll-legge" type="true-false" answer={false} objectives={["lettura-file"]} explanation="`setll` sposta solo il cursore: le variabili del record cambiano con la lettura successiva.">
+    Dopo `setll`, le variabili del programma contengono i campi del primo record con chiave
+    maggiore o uguale.
+  </Question>
+
+  <Question id="chain-non-trovato" type="single" objectives={["lettura-file"]} explanation="Se `chain` non trova il record, le variabili restano quelle del record letto prima: per questo si controlla `%found`.">
+    Che cosa contengono le variabili del record dopo una `chain` che non trova la chiave?
+
+    <Option correct>I valori che avevano prima della `chain`</Option>
+    <Option explanation="RPG non pulisce le variabili quando la lettura fallisce.">Spazi e zeri</Option>
+    <Option explanation="`chain` non legge un altro record al posto di quello cercato.">I campi del record con la chiave più vicina</Option>
+  </Question>
+
+  <Question id="ciclo-reade" type="fill" objectives={["lettura-file"]} explanation="Si posiziona con `setll`, si legge con `reade` e si controlla `%eof`.">
+    Completa il ciclo che somma gli ordini del cliente `cercato`.
+
+    ```text
+    <Blank answer="setll" ignoreCase label="posizionamento" /> cercato ordini;
+    reade cercato ordini;
+    dow not <Blank answer="%eof" ignoreCase label="indicatore di fine" />(ordini);
+      totale += importo;
+      <Blank answer="reade" ignoreCase label="lettura successiva" /> cercato ordini;
+    enddo;
+    ```
+  </Question>
+
+  <Question id="cliente-ha-ordini" type="single" objectives={["lettura-file"]} explanation="`setll` accende `%equal` se esiste un record con la stessa chiave, senza leggerlo.">
+    Quale indicatore dice, dopo `setll cercato ordini;`, se il cliente ha almeno un ordine?
+
+    <Option correct>`%equal(ordini)`</Option>
+    <Option explanation="`%found` è acceso anche se esiste solo un record con chiave maggiore.">`%found(ordini)`</Option>
+    <Option explanation="`setll` non imposta `%eof`.">`%eof(ordini)`</Option>
+  </Question>
+
+  <Question id="chain-senza-found" type="find-error" objectives={["lettura-file"]} explanation="Alla riga 4 il programma usa `saldo` senza controllare `%found`: se il cliente non esiste, mostra il saldo del cliente letto prima.">
+    Questo codice a volte mostra il saldo del cliente sbagliato. Quale riga contiene l'errore?
+
+    ```text showLineNumbers error={4}
+    dcl-f clienti keyed;
+
+    chain codiceRichiesto clienti;
+    dsply ('Saldo: ' + %char(saldo));
+    ```
+  </Question>
+</Quiz>

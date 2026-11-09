@@ -1,0 +1,7 @@
+id: file-di-database
+title: Accesso nativo ai file di database
+description: Descrivere i file di Db2 for i, leggerli per chiave e aggiornarli con le istruzioni native di RPG.
+objectives:
+  - Descrivere file fisici, file logici e formati record
+  - Leggere un file in sequenza e per chiave
+  - Scrivere, aggiornare e cancellare record gestendo i blocchi

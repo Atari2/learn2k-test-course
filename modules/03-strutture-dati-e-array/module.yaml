@@ -1,0 +1,6 @@
+id: strutture-dati-e-array
+title: Strutture dati e array
+description: Raggruppare i dati in strutture e ripeterli in array.
+objectives:
+  - Dichiarare e usare strutture dati qualificate, modelli e sottocampi sovrapposti
+  - Dichiarare array, scorrerli e cercarvi un valore

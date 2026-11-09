@@ -1,0 +1,367 @@
+<!doctype html>
+<html lang="it">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="learn2k-simulator" content="sdk=1; completion=reported" />
+    <title>Il righello della specifica C</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        --bg: #ffffff;
+        --fg: #1f2933;
+        --muted: #52606d;
+        --border: #9aa5b1;
+        --surface: #f5f7fa;
+        --accent: #1d4ed8;
+        --mark-bg: #fde68a;
+        --mark-fg: #1f2933;
+        --ok: #047857;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root:not([data-theme='light']) {
+          --bg: #111827;
+          --fg: #f3f4f6;
+          --muted: #9ca3af;
+          --border: #6b7280;
+          --surface: #1f2937;
+          --accent: #93c5fd;
+          --mark-bg: #facc15;
+          --mark-fg: #111827;
+          --ok: #6ee7b7;
+        }
+      }
+      :root[data-theme='dark'] {
+        color-scheme: dark;
+        --bg: #111827;
+        --fg: #f3f4f6;
+        --muted: #9ca3af;
+        --border: #6b7280;
+        --surface: #1f2937;
+        --accent: #93c5fd;
+        --mark-bg: #facc15;
+        --mark-fg: #111827;
+        --ok: #6ee7b7;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        padding: 16px;
+        background: var(--bg);
+        color: var(--fg);
+        font:
+          15px/1.5 system-ui,
+          sans-serif;
+      }
+      h1 {
+        margin: 0 0 4px;
+        font-size: 1.15rem;
+      }
+      h2 {
+        margin: 18px 0 8px;
+        font-size: 1.05rem;
+      }
+      p {
+        margin: 0 0 12px;
+      }
+      .intro {
+        color: var(--muted);
+      }
+      .mono {
+        font-family: ui-monospace, monospace;
+      }
+      label {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        font-weight: 600;
+        max-width: 100%;
+      }
+      select {
+        min-height: 36px;
+        max-width: 100%;
+        padding: 4px 8px;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        background: var(--bg);
+        color: var(--fg);
+        font: 14px ui-monospace, monospace;
+      }
+      .source {
+        overflow-x: auto;
+        margin: 12px 0;
+        padding: 8px;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        background: var(--surface);
+      }
+      .source pre {
+        margin: 0;
+        font: 14px/1.4 ui-monospace, monospace;
+      }
+      .source mark {
+        background: var(--mark-bg);
+        color: var(--mark-fg);
+        font-weight: 700;
+      }
+      .ruler {
+        color: var(--muted);
+      }
+      .fields {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+      button {
+        min-height: 36px;
+        padding: 6px 12px;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        background: var(--surface);
+        color: var(--fg);
+        font: inherit;
+        cursor: pointer;
+      }
+      button[aria-pressed='true'] {
+        border-color: var(--accent);
+        color: var(--accent);
+        font-weight: 600;
+      }
+      button:focus-visible,
+      select:focus-visible,
+      .source:focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: 2px;
+      }
+      .explain {
+        margin-top: 12px;
+        padding: 10px 12px;
+        border-left: 3px solid var(--accent);
+        background: var(--surface);
+      }
+      .explain.done {
+        border-left-color: var(--ok);
+      }
+      .explain strong {
+        display: block;
+      }
+      .progress {
+        color: var(--muted);
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Il righello della specifica C</h1>
+    <p class="intro">
+      In una specifica C a formato fisso ogni informazione ha le sue colonne. Scegli una riga
+      d'esempio, poi esamina le sue parti: le colonne della parte scelta si evidenziano sotto il
+      righello.
+    </p>
+
+    <label>
+      Riga d'esempio
+      <select id="riga"></select>
+    </label>
+
+    <div class="source" tabindex="0" role="region" aria-label="Riga sorgente con il righello delle colonne">
+      <pre><span class="ruler" id="ruler-tens" aria-hidden="true"></span>
+<span class="ruler" id="ruler-units" aria-hidden="true"></span>
+<span id="line"></span>
+<span id="marker" aria-hidden="true"></span></pre>
+    </div>
+
+    <h2>Le parti della riga</h2>
+    <div class="fields" id="fields"></div>
+    <div class="explain" id="explain" aria-live="polite"></div>
+    <p class="progress" id="progress"></p>
+
+    <script>
+      const KINDS = {
+        tipo: { label: 'Tipo di specifica', from: 6, to: 6 },
+        condizione: { label: 'Indicatori di condizione', from: 9, to: 11 },
+        fattore1: { label: 'Fattore 1', from: 12, to: 25 },
+        opcode: { label: 'Codice operativo', from: 26, to: 35 },
+        fattore2: { label: 'Fattore 2', from: 36, to: 49 },
+        risultato: { label: 'Campo risultato', from: 50, to: 63 },
+        lunghezza: { label: 'Lunghezza', from: 64, to: 68, right: true },
+        decimali: { label: 'Decimali', from: 69, to: 70, right: true },
+        risultanti: { label: 'Indicatori risultanti', from: 71, to: 76 },
+        esteso: { label: 'Fattore 2 esteso', from: 36, to: 80 },
+      };
+
+      const TIPO = { kind: 'tipo', text: 'C', desc: 'La colonna 6 dice il tipo di specifica: C è una specifica di calcolo. Le colonne da 1 a 5 sono per il numero di sequenza, e un asterisco in colonna 7 trasforma la riga in un commento.' };
+
+      const LINES = [
+        {
+          title: 'CHAIN con indicatore',
+          parts: [
+            TIPO,
+            { kind: 'fattore1', text: 'CODCLI', desc: 'CODCLI è la chiave da cercare. Per CHAIN, il fattore 1 è la chiave e il fattore 2 il file.' },
+            { kind: 'opcode', text: 'CHAIN', desc: 'CHAIN legge il primo record con la chiave indicata. Nelle stesse colonne vanno le estensioni, come CHAIN(N).' },
+            { kind: 'fattore2', text: 'CLIENTI', desc: 'CLIENTI è il file da leggere.' },
+            { kind: 'risultanti', text: '99', desc: "99, nelle colonne 71-72, si accende quando il record NON viene trovato. In formato libero si usa invece %found(clienti)." },
+          ],
+        },
+        {
+          title: 'MULT con campo dichiarato al volo',
+          parts: [
+            TIPO,
+            { kind: 'fattore1', text: 'IMPORTO', desc: 'IMPORTO è il primo operando della moltiplicazione.' },
+            { kind: 'opcode', text: 'MULT', desc: 'MULT moltiplica il fattore 1 per il fattore 2 e mette il prodotto nel campo risultato. Se il prodotto non entra, tronca le cifre in eccesso senza errore, a differenza di un\'espressione.' },
+            { kind: 'fattore2', text: '1.22', desc: '1.22 è il secondo operando.' },
+            { kind: 'risultato', text: 'LORDO', desc: 'LORDO riceve il risultato: IMPORTO per 1.22.' },
+            { kind: 'lunghezza', text: '11', desc: '11, nelle colonne 64-68, dichiara LORDO proprio qui: un campo numerico di 11 cifre. Le specifiche C potevano dichiarare campi al volo, e trovarli è una delle fatiche del codice storico.' },
+            { kind: 'decimali', text: '2', desc: '2, nelle colonne 69-70, sono le cifre decimali di LORDO. Con i decimali indicati il campo è numerico; senza, sarebbe un campo di testo.' },
+          ],
+        },
+        {
+          title: 'ADD condizionata da un indicatore',
+          parts: [
+            TIPO,
+            { kind: 'condizione', text: 'N99', desc: "N99, nelle colonne 9-11, condiziona la riga: si esegue solo se l'indicatore 99 è spento (N vuol dire not). In formato libero diventa un if." },
+            { kind: 'opcode', text: 'ADD', desc: 'ADD somma. Con il fattore 1 vuoto somma il fattore 2 al campo risultato: TOTALE = TOTALE + SALDO.' },
+            { kind: 'fattore2', text: 'SALDO', desc: 'SALDO è il valore da sommare.' },
+            { kind: 'risultato', text: 'TOTALE', desc: 'TOTALE riceve la somma.' },
+          ],
+        },
+        {
+          title: 'EVAL con fattore 2 esteso',
+          parts: [
+            TIPO,
+            { kind: 'opcode', text: 'EVAL', desc: "EVAL valuta un'espressione e assegna il risultato. È l'antenato diretto dell'assegnazione in formato libero." },
+            { kind: 'esteso', text: 'TOTALE = TOTALE + SALDO', desc: "Con EVAL, IF, DOW e le altre istruzioni che usano espressioni, le colonne da 36 a 80 sono un unico campo: il fattore 2 esteso. Qui si scrive come in formato libero." },
+          ],
+        },
+        {
+          title: 'SETON dell\'indicatore LR',
+          parts: [
+            TIPO,
+            { kind: 'opcode', text: 'SETON', desc: 'SETON accende gli indicatori scritti nelle colonne degli indicatori risultanti.' },
+            { kind: 'risultanti', text: 'LR', desc: "LR, nelle colonne 71-72, è l'indicatore di ultimo record: la riga equivale a *inlr = *on." },
+          ],
+        },
+      ];
+
+      const lineSelect = document.getElementById('riga');
+      const fieldsBox = document.getElementById('fields');
+      const explain = document.getElementById('explain');
+      const progress = document.getElementById('progress');
+      const seen = new Set();
+      const totalKinds = Object.keys(KINDS).length;
+      let completed = false;
+      let current = 0;
+      let selected = null;
+
+      function place(text, kind) {
+        const { from, to, right } = KINDS[kind];
+        const width = to - from + 1;
+        return right ? text.padStart(width, ' ') : text;
+      }
+
+      function buildLine(parts) {
+        const chars = Array(80).fill(' ');
+        for (const part of parts) {
+          const { from } = KINDS[part.kind];
+          const text = place(part.text, part.kind);
+          for (let i = 0; i < text.length; i++) chars[from - 1 + i] = text[i];
+        }
+        return chars.join('');
+      }
+
+      function renderRuler() {
+        let tens = '';
+        let units = '';
+        for (let c = 1; c <= 80; c++) {
+          tens += c % 10 === 0 ? String(c / 10) : ' ';
+          units += String(c % 10);
+        }
+        document.getElementById('ruler-tens').textContent = tens;
+        document.getElementById('ruler-units').textContent = units;
+      }
+
+      function renderLine() {
+        const line = buildLine(LINES[current].parts);
+        const target = document.getElementById('line');
+        const marker = document.getElementById('marker');
+        if (selected === null) {
+          target.textContent = line;
+          marker.textContent = '';
+          return;
+        }
+        const { from, to } = KINDS[selected];
+        const mark = document.createElement('mark');
+        mark.textContent = line.slice(from - 1, to);
+        target.replaceChildren(line.slice(0, from - 1), mark, line.slice(to));
+        marker.textContent = ' '.repeat(from - 1) + '^'.repeat(to - from + 1);
+      }
+
+      function renderButtons() {
+        const parts = LINES[current].parts;
+        fieldsBox.replaceChildren(
+          ...parts.map((part) => {
+            const { label, from, to } = KINDS[part.kind];
+            const button = document.createElement('button');
+            button.type = 'button';
+            const columns = from === to ? `colonna ${from}` : `colonne ${from}-${to}`;
+            button.textContent = `${label} (${columns})`;
+            button.setAttribute('aria-pressed', String(selected === part.kind));
+            button.addEventListener('click', () => choose(part));
+            return button;
+          }),
+        );
+      }
+
+      function renderProgress() {
+        progress.textContent = completed
+          ? `Hai esaminato tutti i ${totalKinds} tipi di colonna: il simulatore è completato.`
+          : `Tipi di colonna esaminati: ${seen.size} di ${totalKinds}. Prova tutte le righe d'esempio per vederli tutti.`;
+      }
+
+      function choose(part) {
+        selected = part.kind;
+        const { label, from, to } = KINDS[part.kind];
+        const columns = from === to ? `colonna ${from}` : `colonne ${from}-${to}`;
+        explain.replaceChildren();
+        const title = document.createElement('strong');
+        title.textContent = `${label}, ${columns}: ${part.text}`;
+        explain.append(title, document.createTextNode(part.desc));
+        if (!seen.has(part.kind)) {
+          seen.add(part.kind);
+          window.learn2k?.interacted('esamina-colonna', part.kind);
+        }
+        if (!completed && seen.size === totalKinds) {
+          completed = true;
+          window.learn2k?.complete({ success: true });
+        }
+        explain.classList.toggle('done', completed);
+        renderLine();
+        renderButtons();
+        renderProgress();
+        fieldsBox.querySelector('[aria-pressed="true"]')?.focus();
+      }
+
+      LINES.forEach((line, i) => {
+        const option = document.createElement('option');
+        option.value = String(i);
+        option.textContent = line.title;
+        lineSelect.append(option);
+      });
+      lineSelect.addEventListener('change', () => {
+        current = Number(lineSelect.value);
+        selected = null;
+        explain.textContent = `Riga: ${LINES[current].title}. Scegli una delle sue parti.`;
+        explain.classList.toggle('done', completed);
+        renderLine();
+        renderButtons();
+      });
+
+      renderRuler();
+      renderLine();
+      renderButtons();
+      renderProgress();
+      explain.textContent = `Riga: ${LINES[current].title}. Scegli una delle sue parti.`;
+    </script>
+  </body>
+</html>

@@ -1,9 +1,12 @@
 schemaVersion: 1
 id: test-course
-title: test-course
-description: Descrivi il corso in una o due frasi.
+title: Programmare in RPG su IBM i
+description: >-
+  Un corso introduttivo a ILE RPG, il linguaggio dei programmi gestionali su IBM i: dal primo
+  programma in formato libero ai file di database, all'SQL embedded e alla lettura del codice
+  storico a colonne fisse.
 language: it
 level: beginner
-tags: []
+tags: [rpg, rpgle, ile, ibm-i, as400, db2-for-i]
 authors:
-  - name: Nome dell'autore
+  - name: Alessio Rosiello

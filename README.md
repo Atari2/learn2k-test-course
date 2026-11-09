@@ -1,6 +1,7 @@
-# test-course
+# Programmare in RPG su IBM i
 
-Sorgenti del corso in formato Learn2K.
+Sorgenti del corso in formato Learn2K: un'introduzione a ILE RPG, dal formato libero
+all'accesso ai file di database, all'SQL embedded e al codice storico a colonne fisse.
 
 ```sh
 learn-author validate   # controlla i sorgenti

@@ -1,0 +1,200 @@
+---
+id: file-e-tabelle
+title: File, tabelle e formati record
+duration: 30
+objectives:
+  - Descrivere file fisici, file logici e formati record
+  - Dichiarare un file in un programma RPG e leggerlo in sequenza
+prerequisites: [gestione-degli-errori]
+tags: [database, dds]
+level: intermediate
+---
+
+IBM i ha un database relazionale integrato nel sistema operativo, **Db2 for i**. Non è un
+prodotto da installare: ogni file di dati del sistema è una tabella di Db2, e RPG la può
+leggere in due modi, con le sue istruzioni **native** o con l'**SQL**. Questo modulo spiega
+le istruzioni native, che trovi in quasi tutti i programmi esistenti; il prossimo l'SQL.
+
+## Due vocabolari per le stesse cose
+
+Su IBM i le tabelle esistevano prima che l'SQL arrivasse sul sistema, e hanno nomi propri:
+
+| Termine nativo | Termine SQL | Che cos'è |
+| -------------- | ----------- | --------- |
+| file fisico (PF) | tabella | contiene i dati |
+| file logico con chiave (LF) | indice | un ordine di lettura dei dati di un file fisico |
+| file logico senza chiave | vista | una selezione o un'unione di dati di altri file |
+| formato record | riga | l'elenco dei campi di un record |
+| campo | colonna | un dato del record |
+
+Tutti sono oggetti di tipo `*FILE`, e un programma RPG li usa allo stesso modo, che siano
+stati creati con l'SQL o con le **DDS**.
+
+## Le DDS
+
+Le DDS (*Data Description Specifications*) sono il modo storico di descrivere un file: un
+sorgente a colonne fisse, di tipo `PF` per un file fisico. Questo è il file dei clienti
+usato nel resto del modulo:
+
+```text title="QDDSSRC, membro CLIENTI (tipo PF)" showLineNumbers
+     A                                      UNIQUE
+     A          R CLIENTIR                  TEXT('Anagrafica clienti')
+     A            CODICE         6A         TEXT('Codice cliente')
+     A            NOME          40A
+     A            CITTA         30A
+     A            SALDO         11P 2
+     A          K CODICE
+```
+
+- La riga con `R` dichiara il **formato record**, `CLIENTIR`: il nome dell'elenco dei campi.
+  Per convenzione è il nome del file con una `R` in fondo.
+- Le righe dei campi hanno il nome, la lunghezza e il tipo: `A` per i testi, `P` per i
+  numeri impaccati (con i decimali, qui 2), `S` per i zonati, `L` per le date.
+- Le righe con `K` sono i campi **chiave**; `UNIQUE` vieta due record con la stessa chiave.
+
+Un **file logico** dà un altro ordine agli stessi dati, senza copiarli. Questo legge i clienti
+per città e poi per nome:
+
+```text title="QDDSSRC, membro CLIENTIL1 (tipo LF)"
+     A          R CLIENTIR                  PFILE(CLIENTI)
+     A          K CITTA
+     A          K NOME
+```
+
+I file si creano dal sorgente con `CRTPF` e `CRTLF`:
+
+```text
+CRTPF FILE(MIALIB/CLIENTI) SRCFILE(MIALIB/QDDSSRC) SRCMBR(CLIENTI)
+CRTLF FILE(MIALIB/CLIENTIL1) SRCFILE(MIALIB/QDDSSRC) SRCMBR(CLIENTIL1)
+```
+
+## Lo stesso in SQL
+
+Oggi i file nuovi si creano di solito con l'SQL. L'equivalente dei due file precedenti:
+
+```sql
+CREATE TABLE MIALIB.CLIENTI (
+  CODICE CHAR(6) NOT NULL,
+  NOME CHAR(40) NOT NULL DEFAULT '',
+  CITTA CHAR(30) NOT NULL DEFAULT '',
+  SALDO DECIMAL(11, 2) NOT NULL DEFAULT 0,
+  PRIMARY KEY (CODICE)
+) RCDFMT CLIENTIR;
+
+CREATE INDEX MIALIB.CLIENTIL1 ON MIALIB.CLIENTI (CITTA, NOME);
+```
+
+`RCDFMT` dà il nome al formato record, che altrimenti sarebbe uguale al nome della tabella.
+Un indice SQL ha lo stesso formato record della sua tabella, e un programma RPG lo usa come
+un file logico con chiave.
+
+<Callout type="tip" title="Nomi brevi">
+  RPG usa il **nome di sistema** degli oggetti, al massimo 10 caratteri. Un indice SQL con un
+  nome lungo riceve un nome di sistema generato, difficile da usare: per i file che leggi da
+  RPG scegli nomi di al massimo 10 caratteri.
+</Callout>
+
+## Dichiarare un file in RPG
+
+Un file si dichiara con `dcl-f`:
+
+```text
+dcl-f clienti keyed;
+dcl-f clientil1 keyed rename(clientir : clientir1);
+dcl-f ordini usage(*update : *output) keyed;
+```
+
+| Parola chiave | Significato |
+| ------------- | ----------- |
+| `usage(*input)` | solo lettura: è il valore predefinito per un file di database |
+| `usage(*update)` | lettura e aggiornamento dei record letti |
+| `usage(*delete)` | cancellazione dei record letti |
+| `usage(*output)` | scrittura di record nuovi |
+| `keyed` | accesso per chiave; senza, il file si legge nell'ordine di arrivo dei record |
+| `rename(vecchio : nuovo)` | rinomina il formato record nel programma |
+
+`clienti` e `clientil1` hanno lo stesso formato record, `CLIENTIR`: in un programma che usa
+tutti e due, `rename` dà al secondo un nome diverso.
+
+Il file è **descritto esternamente**: quando compili, RPG legge la descrizione del file e
+dichiara da solo una variabile per ogni campo. Dopo `dcl-f clienti keyed;` il programma ha già
+`codice`, `nome`, `citta` e `saldo`, con i loro tipi: non vanno dichiarate.
+
+## Leggere tutto il file
+
+```text title="ELENCOCLI.RPGLE" showLineNumbers
+**FREE
+ctl-opt dftactgrp(*no) actgrp(*new);
+
+dcl-f clienti keyed;
+
+read clienti;
+dow not %eof(clienti);
+  dsply (codice + ' ' + %trim(nome));
+  read clienti;
+enddo;
+
+*inlr = *on;
+return;
+```
+
+- Il file si apre all'avvio del programma, posizionato sul primo record.
+- `read` legge il record successivo e copia i suoi campi nelle variabili del programma.
+- Quando non ci sono più record, `read` accende `%eof(clienti)` e le variabili restano come
+  erano.
+- Con `keyed` i record arrivano in ordine di chiave, cioè di codice; leggendo `clientil1`
+  arriverebbero in ordine di città e nome.
+
+Lo schema «leggi, poi ripeti finché non è finito, leggendo in fondo al ciclo» è il modo
+classico di scorrere un file in RPG: la prima `read` prima del ciclo, la successiva
+nell'ultima riga del ciclo.
+
+<Callout type="try">
+  1. Crea il file `CLIENTI` con le DDS o con l'SQL.
+  2. Inserisci qualche cliente con l'SQL, per esempio dallo strumento *Run SQL Scripts* di
+     ACS: `INSERT INTO MIALIB.CLIENTI VALUES ('C00001', 'Rossi Srl', 'Torino', 1500)`.
+  3. Compila ed esegui `ELENCOCLI`, poi sostituisci `clienti` con `clientil1` nelle tre
+     istruzioni che usano il file e guarda come cambia l'ordine.
+</Callout>
+
+## Verifica
+
+<Quiz id="quiz-file-e-tabelle" title="File, tabelle e formati record" attempts={3}>
+  <Question id="logico-con-chiave" type="single" objectives={["file-e-formati"]} explanation="Un file logico con chiave dà un ordine di lettura ai dati del file fisico, come un indice SQL.">
+    A quale oggetto SQL corrisponde un file logico con chiave?
+
+    <Option correct>Un indice</Option>
+    <Option explanation="Una tabella corrisponde a un file fisico.">Una tabella</Option>
+    <Option explanation="Una procedura memorizzata non descrive dati.">Una procedura memorizzata</Option>
+  </Question>
+
+  <Question id="campi-automatici" type="true-false" answer={true} objectives={["file-e-formati"]} explanation="Un file descritto esternamente porta nel programma una variabile per ogni campo del suo formato record.">
+    Dopo `dcl-f clienti keyed;` il programma può usare la variabile `saldo` senza dichiararla.
+  </Question>
+
+  <Question id="tipi-dds" type="fill" objectives={["file-e-formati"]} explanation="Nelle DDS `A` indica un campo di testo e `P` un numero impaccato; `K` una riga di chiave.">
+    Completa le DDS del file dei clienti.
+
+    ```text
+         A          R CLIENTIR
+         A            CODICE         6<Blank answer="A" ignoreCase label="tipo di CODICE" />
+         A            SALDO         11<Blank answer="P" ignoreCase label="tipo di SALDO" /> 2
+         A          <Blank answer="K" ignoreCase label="riga di chiave" /> CODICE
+    ```
+  </Question>
+
+  <Question id="read-fine" type="find-error" objectives={["file-e-formati"]} explanation="Alla riga 4 manca `not`: dopo la prima `read` riuscita `%eof` è spento, quindi il ciclo non si esegue mai.">
+    Il file contiene dei clienti, ma questo programma non ne mostra nessuno. Quale riga
+    contiene l'errore?
+
+    ```text showLineNumbers error={4}
+    dcl-f clienti keyed;
+
+    read clienti;
+    dow %eof(clienti);
+      dsply (codice + ' ' + %trim(nome));
+      read clienti;
+    enddo;
+    ```
+  </Question>
+</Quiz>

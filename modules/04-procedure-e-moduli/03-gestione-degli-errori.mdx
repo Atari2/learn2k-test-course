@@ -1,0 +1,180 @@
+---
+id: gestione-degli-errori
+title: Gestire gli errori
+duration: 25
+objectives:
+  - Intercettare e gestire gli errori durante l'esecuzione
+  - Leggere i codici di stato di RPG
+prerequisites: [programmi-di-servizio]
+tags: [errori]
+level: intermediate
+---
+
+Nelle lezioni precedenti hai visto diversi modi per fermare un programma: una divisione per
+zero, un numero troppo grande, un indice fuori dai limiti. Questa lezione spiega che cosa
+succede in quei casi e come intercettare l'errore prima che fermi tutto.
+
+## Che cosa succede senza gestione
+
+Quando un'istruzione fallisce e nessuno gestisce l'errore, RPG ferma il programma e invia un
+**messaggio di interrogazione**: in un lavoro interattivo, l'utente vede per esempio questo
+messaggio, nella lingua del sistema
+
+```text
+Attempt to divide by zero (C G D F).
+```
+
+e deve scegliere come proseguire: `C` annulla il programma, `G` continua, `D` e `F`
+annullano e salvano un dump per l'analisi. Nel registro del lavoro il messaggio ha un codice
+come `RNQ0102`, dove `0102` è il **codice di stato** dell'errore, lo stesso che il
+programma può leggere. In un lavoro batch la domanda arriva all'operatore di sistema, e il
+lavoro resta fermo finché qualcuno non risponde.
+
+| Stato | Errore |
+| ----- | ------ |
+| `00102` | divisione per zero |
+| `00103` | il risultato non entra nella variabile |
+| `00105` | caratteri non validi nella conversione di un testo in numero |
+| `00112` | data, ora o timestamp non validi |
+| `00121` | indice di un array fuori dai limiti |
+| `00907` | dati decimali non validi |
+| `01218` | record bloccato da un altro lavoro |
+
+## MONITOR
+
+Il modo moderno di gestire gli errori è il blocco `monitor`: se un'istruzione al suo interno
+fallisce, l'esecuzione salta al primo `on-error` che corrisponde all'errore.
+
+```text showLineNumbers
+dcl-s totale packed(11:2) inz(1500);
+dcl-s quantita int(10) inz(0);
+dcl-s media packed(11:2);
+
+monitor;
+  media = totale / quantita;
+on-error 00102;
+  media = 0;
+on-error *program;
+  dsply 'Errore imprevisto nel calcolo';
+  media = 0;
+endmon;
+```
+
+- `on-error` accetta uno o più codici di stato, separati dai due punti, oppure i gruppi
+  `*program` (tutti gli errori del programma), `*file` (gli errori sui file) e `*all`.
+- I blocchi `on-error` si controllano in ordine: metti prima i più specifici.
+- Dopo il blocco gestito, l'esecuzione continua dopo `endmon`.
+
+Un `monitor` intercetta anche gli errori delle procedure che chiama, se non li gestiscono
+loro. Così un errore in fondo a una catena di chiamate risale fino al primo `monitor` che
+lo aspetta.
+
+<Callout type="warning" title="Non nascondere gli errori">
+  Un `on-error *all` che non fa niente rende il programma impossibile da correggere: l'errore
+  sparisce, e con lui la sua causa. Quando intercetti un errore imprevisto, registralo da
+  qualche parte o mostralo, poi decidi se il programma può davvero continuare.
+</Callout>
+
+## L'estensione (E)
+
+Molte istruzioni accettano l'estensione `(e)`: se falliscono, invece di fermare il
+programma impostano `%error` e `%status`, e il programma prosegue con l'istruzione dopo.
+L'estensione si scrive dopo il codice operativo, e serve soprattutto con le istruzioni sui
+file che vedrai nel prossimo modulo:
+
+```text
+chain(e) codice clienti;
+if %error();
+  dsply ('Errore sul file, stato ' + %char(%status(clienti)));
+elseif %found(clienti);
+  dsply 'Cliente trovato';
+endif;
+```
+
+Con `(e)` controlla `%error()` **subito** dopo l'istruzione: la successiva con `(e)` lo
+sovrascrive. Le assegnazioni non hanno un'estensione `(e)`: per proteggerle si usa
+`monitor`.
+
+## La struttura di stato del programma
+
+Una struttura dati dichiarata con `psds` (*program status data structure*) riceve
+automaticamente le informazioni sul programma e sul suo ultimo errore:
+
+```text
+dcl-ds statoProgramma psds qualified;
+  procedura *proc;
+  stato *status;
+  utente char(10) pos(254);
+end-ds;
+
+monitor;
+  media = totale / quantita;
+on-error;
+  dsply ('Errore ' + %char(statoProgramma.stato) + ' in '
+         + %trim(statoProgramma.procedura));
+endmon;
+```
+
+Le parole chiave speciali come `*proc` e `*status` indicano sottocampi in posizioni fisse
+della struttura, e con `pos` si leggono le altre: dalla 254 c'è il nome dell'utente. La
+struttura completa è descritta nel manuale di riferimento di ILE RPG.
+
+<Callout type="try">
+  1. Esegui un programma che divide per zero senza `monitor`, rispondi `D` al messaggio e
+     cerca il dump con `WRKSPLF`.
+  2. Aggiungi un `monitor` con `on-error 00102` e controlla che il programma arrivi in fondo.
+  3. Prova `%int('12a')` dentro un `monitor` e mostra il codice di stato con la struttura
+     `psds`.
+</Callout>
+
+## Verifica
+
+<Quiz id="quiz-gestione-degli-errori" title="Gestire gli errori" attempts={3}>
+  <Question id="ordine-on-error" type="single" objectives={["gestione-errori-rpg"]} explanation="I blocchi `on-error` si controllano in ordine: se `*program` viene prima, intercetta anche la divisione per zero, e il blocco di `00102` non si esegue mai.">
+    Un `monitor` ha prima `on-error *program;` e poi `on-error 00102;`. Che cosa succede con
+    una divisione per zero?
+
+    <Option correct>Si esegue il blocco di `*program`, perché viene prima</Option>
+    <Option explanation="I blocchi non si scelgono per specificità, ma in ordine.">Si esegue il blocco di `00102`, perché è più specifico</Option>
+    <Option>Si eseguono tutti e due i blocchi</Option>
+  </Question>
+
+  <Question id="stati-errore" type="fill" objectives={["gestione-errori-rpg"]} explanation="`00102` è la divisione per zero, `00121` l'indice fuori dai limiti.">
+    Completa i codici di stato.
+
+    ```text
+    monitor;
+      media = totale / quantita;
+      valore = importi(i);
+    on-error <Blank answer="00102" label="divisione per zero" />;
+      media = 0;
+    on-error <Blank answer="00121" label="indice fuori dai limiti" />;
+      valore = 0;
+    endmon;
+    ```
+  </Question>
+
+  <Question id="estensione-e" type="true-false" answer={false} objectives={["gestione-errori-rpg"]} explanation="Con `(e)` il programma non si ferma: l'errore imposta `%error` e `%status`, e tocca al programma controllarli.">
+    Con l'estensione `(e)`, un'istruzione che fallisce ferma comunque il programma, ma con un
+    messaggio più chiaro.
+  </Question>
+
+  <Question id="monitor-procedure" type="true-false" answer={true} objectives={["gestione-errori-rpg"]} explanation="Un errore non gestito in una procedura risale al chiamante, fino al primo `monitor` che lo intercetta.">
+    Un `monitor` intercetta anche gli errori non gestiti delle procedure chiamate al suo
+    interno.
+  </Question>
+</Quiz>
+
+## Come ti senti?
+
+<Checkpoint id="checkpoint-procedure-e-moduli">
+  <Objective id="procedure-rpg" review="./01-subroutine-e-procedure.mdx">
+    Scrivere procedure con parametri e valore di ritorno, e chiamare altri programmi
+  </Objective>
+  <Objective id="programmi-di-servizio-rpg" review="./02-programmi-di-servizio.mdx">
+    Raccogliere procedure in un programma di servizio e usarle da altri programmi
+  </Objective>
+  <Objective id="gestione-errori-rpg" review="#monitor">
+    Intercettare e gestire gli errori durante l'esecuzione
+  </Objective>
+</Checkpoint>

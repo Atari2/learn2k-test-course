@@ -1,5 +1,8 @@
 id: introduzione
-title: Introduzione
-description: Di cosa tratta il modulo.
+title: Introduzione a RPG
+description: Che cos'è RPG, da dove viene e in quale ambiente vivono i suoi programmi.
 objectives:
-  - Cosa saprà fare lo studente alla fine del modulo
+  - Descrivere a che cosa serve RPG e dove si usa oggi
+  - Collocare RPG IV e il formato libero nella storia del linguaggio
+  - Orientarsi tra oggetti, librerie e file sorgente di IBM i
+  - Compilare ed eseguire un programma RPG

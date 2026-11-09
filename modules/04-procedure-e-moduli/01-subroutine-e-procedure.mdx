@@ -1,0 +1,223 @@
+---
+id: subroutine-e-procedure
+title: Subroutine e procedure
+duration: 35
+objectives:
+  - Scrivere procedure con parametri e valore di ritorno
+  - Scegliere tra passaggio per riferimento, CONST e VALUE
+  - Chiamare un altro programma attraverso un prototipo
+prerequisites: [array]
+tags: [procedure]
+level: intermediate
+---
+
+Un programma che cresce va diviso in parti. RPG ne offre due: le **subroutine**, che vengono
+dal passato e si trovano ovunque nel codice esistente, e le **procedure**, che sono il modo
+in cui si scrive oggi.
+
+## Le subroutine
+
+Una subroutine è un blocco di codice con un nome, tra `begsr` ed `endsr`, che si esegue con
+`exsr`:
+
+```text showLineNumbers
+**FREE
+ctl-opt dftactgrp(*no) actgrp(*new);
+
+dcl-s quantita int(10) inz(3);
+dcl-s prezzo packed(9:2) inz(19.90);
+dcl-s totale packed(11:2);
+
+exsr calcolaTotale;
+dsply ('Totale: ' + %char(totale));
+
+*inlr = *on;
+return;
+
+begsr calcolaTotale;
+  totale = quantita * prezzo;
+endsr;
+```
+
+Una subroutine non ha parametri né variabili sue: lavora sulle variabili globali del
+programma. È semplice, ma in un programma lungo non si capisce più chi cambia che cosa.
+
+## Le procedure
+
+Una **procedura** è una funzione: ha parametri, variabili locali e un valore di ritorno.
+Si dichiara tra `dcl-proc` ed `end-proc`, dopo il codice principale del programma:
+
+```text showLineNumbers {8,15-29}
+**FREE
+ctl-opt dftactgrp(*no) actgrp(*new);
+
+dcl-s imponibile packed(11:2) inz(250.00);
+dcl-s scontato packed(11:2);
+dcl-s messaggio varchar(52);
+
+scontato = applicaSconto(imponibile : 10);
+messaggio = 'Scontato: ' + %char(scontato);
+dsply messaggio;
+
+*inlr = *on;
+return;
+
+dcl-proc applicaSconto;
+  dcl-pi *n packed(11:2);
+    importo packed(11:2) const;
+    percentuale packed(5:2) value;
+  end-pi;
+
+  dcl-s sconto packed(11:2);
+
+  if percentuale < 0 or percentuale > 100;
+    return importo;
+  endif;
+
+  eval(h) sconto = importo * percentuale / 100;
+  return importo - sconto;
+end-proc;
+```
+
+- `dcl-pi` è l'**interfaccia della procedura**: l'elenco dei parametri e, dopo `*n`, il tipo
+  del valore di ritorno. `*n` sta per «lo stesso nome della procedura».
+- `sconto` è una **variabile locale**: esiste solo dentro la procedura, e a ogni chiamata
+  riparte da zero.
+- `return` esce dalla procedura con il valore indicato.
+- Nella chiamata, gli argomenti sono tra parentesi e separati dai due punti, come nelle
+  funzioni incorporate.
+
+Una procedura senza valore di ritorno si chiama come un'istruzione: `registraOrdine(numero);`.
+Se non ha parametri, si chiama con le parentesi vuote: `inizializza();`.
+
+<Callout type="warning" title="Le procedure vogliono dftactgrp(*no)">
+  Un programma con procedure non può girare nel gruppo di attivazione predefinito, quello dei
+  programmi storici. Per questo gli esempi del corso scrivono sempre `dftactgrp(*no)` in
+  `ctl-opt`.
+</Callout>
+
+## Come passano i parametri
+
+RPG passa i parametri in tre modi, e la differenza conta:
+
+| Dichiarazione | Che cosa riceve la procedura | Può cambiare l'originale? | Che cosa si può passare |
+| ------------- | ---------------------------- | ------------------------- | ----------------------- |
+| `importo packed(11:2)` | l'indirizzo della variabile del chiamante | sì | solo una variabile dello stesso tipo |
+| `importo packed(11:2) const` | l'indirizzo di un valore in sola lettura | no | una variabile, una costante o un'espressione |
+| `importo packed(11:2) value` | una copia del valore | no (cambia solo la copia) | una variabile, una costante o un'espressione |
+
+- **Per riferimento**, senza parole chiave, è il predefinito: la procedura lavora sulla
+  variabile del chiamante e le sue modifiche si vedono fuori. Serve per i parametri di
+  **uscita**.
+- **`const`** è il modo giusto per i parametri di **ingresso**: il compilatore impedisce di
+  modificarli, e accetta anche espressioni e valori di tipo compatibile, che converte da
+  solo. Per questo nell'esempio `applicaSconto` riceve `10` senza problemi.
+- **`value`** passa una copia, che la procedura può usare come una variabile locale.
+
+## I prototipi
+
+Un **prototipo**, `dcl-pr`, descrive come si chiama una procedura o un programma: nome,
+parametri, valore di ritorno. Per una procedura nello stesso sorgente non serve, perché il
+compilatore legge l'interfaccia `dcl-pi`. Serve invece per chiamare qualcosa che sta
+altrove: una procedura di un altro modulo, come vedrai nella prossima lezione, o un altro
+programma.
+
+Per chiamare un programma si usa un prototipo con `extpgm`:
+
+```text
+dcl-pr calcolaIva extpgm('CALCIVA');
+  imponibile packed(11:2) const;
+  iva packed(11:2);
+end-pr;
+
+dcl-s iva packed(11:2);
+
+calcolaIva(1000 : iva);
+dsply ('IVA: ' + %char(iva));
+```
+
+`calcolaIva` è il nome che usi nel codice, `CALCIVA` quello del programma. Il programma
+chiamato riceve i parametri con un'interfaccia senza nome, in cima al suo sorgente:
+
+```text title="CALCIVA.RPGLE"
+**FREE
+ctl-opt dftactgrp(*no) actgrp(*caller);
+
+dcl-pi *n;
+  imponibile packed(11:2) const;
+  iva packed(11:2);
+end-pi;
+
+eval(h) iva = imponibile * 22 / 100;
+
+*inlr = *on;
+return;
+```
+
+Tra programmi i parametri passano sempre per riferimento: `iva` è la variabile del chiamante,
+e il valore calcolato torna indietro. Con `actgrp(*caller)` il programma chiamato gira nello
+stesso gruppo di attivazione di chi lo chiama.
+
+<Callout type="try">
+  1. Trasforma la subroutine `calcolaTotale` in una procedura con due parametri `const` e un
+     valore di ritorno.
+  2. In `applicaSconto`, togli `const` da `importo`: che cosa dice il compilatore della
+     chiamata `applicaSconto(imponibile : 10)`? E se `imponibile` fosse `packed(9:2)`?
+  3. Scrivi e compila `CALCIVA`, poi chiamalo da un altro programma.
+</Callout>
+
+## Verifica
+
+<Quiz id="quiz-subroutine-e-procedure" title="Subroutine e procedure" attempts={3}>
+  <Question id="parametro-ingresso" type="single" objectives={["procedure-rpg"]} explanation="`const` protegge il parametro dalle modifiche e accetta anche costanti ed espressioni: è la scelta giusta per i parametri di ingresso.">
+    Una procedura riceve un importo che deve solo leggere. Come conviene dichiarare il
+    parametro?
+
+    <Option correct>`importo packed(11:2) const`</Option>
+    <Option explanation="Per riferimento la procedura potrebbe modificare la variabile del chiamante, e non accetterebbe un'espressione.">`importo packed(11:2)`</Option>
+    <Option explanation="`extpgm` non è una parola chiave dei parametri, ma dei prototipi dei programmi.">`importo packed(11:2) extpgm`</Option>
+  </Question>
+
+  <Question id="parti-procedura" type="fill" objectives={["procedure-rpg"]} explanation="La procedura si apre con `dcl-proc`, l'interfaccia con `dcl-pi` e si chiude con `end-pi`; il valore si restituisce con `return`.">
+    Completa la procedura che raddoppia un numero.
+
+    ```text
+    <Blank answer="dcl-proc" ignoreCase label="apertura della procedura" /> raddoppia;
+      <Blank answer="dcl-pi" ignoreCase label="apertura dell'interfaccia" /> *n int(10);
+        numero int(10) value;
+      end-pi;
+
+      <Blank answer="return" ignoreCase label="istruzione di uscita" /> numero * 2;
+    end-proc;
+    ```
+  </Question>
+
+  <Question id="subroutine-locali" type="true-false" answer={false} objectives={["procedure-rpg"]} explanation="Le subroutine non hanno né parametri né variabili locali: lavorano sulle variabili globali. Le procedure sì.">
+    Una subroutine può dichiarare variabili locali e ricevere parametri.
+  </Question>
+
+  <Question id="chiamata-programma" type="single" objectives={["procedure-rpg"]} explanation="Un altro programma si chiama con un prototipo dichiarato con `extpgm`, che indica il nome del programma.">
+    Come si chiama il programma `CALCIVA` da un sorgente in formato libero?
+
+    <Option correct>Con un prototipo `dcl-pr` con `extpgm('CALCIVA')`, poi chiamando il prototipo</Option>
+    <Option explanation="`exsr` esegue una subroutine dello stesso programma.">Con `exsr CALCIVA;`</Option>
+    <Option explanation="`dcl-proc` dichiara una procedura in questo sorgente, non chiama un programma.">Con `dcl-proc CALCIVA;`</Option>
+  </Question>
+
+  <Question id="modifica-const" type="find-error" objectives={["procedure-rpg"]} explanation="`importo` è `const`: la procedura non può assegnargli un valore. Serve una variabile locale.">
+    Questa procedura non si compila. Quale riga contiene l'errore?
+
+    ```text showLineNumbers error={7}
+    dcl-proc parteIntera;
+      dcl-pi *n packed(11:0);
+        importo packed(11:2) const;
+      end-pi;
+
+      if importo < 0;
+        importo = 0;
+      endif;
+      return %int(importo);
+    end-proc;
+    ```
+  </Question>
+</Quiz>

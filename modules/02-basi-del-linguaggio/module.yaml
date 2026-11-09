@@ -1,0 +1,8 @@
+id: basi-del-linguaggio
+title: Le basi del linguaggio
+description: Il primo programma, i tipi di dati, le espressioni e il controllo del flusso.
+objectives:
+  - Scrivere, compilare ed eseguire un programma in formato libero
+  - Dichiarare variabili e costanti scegliendo il tipo di dati adatto
+  - Scrivere espressioni con le funzioni incorporate
+  - Controllare il flusso con condizioni e cicli

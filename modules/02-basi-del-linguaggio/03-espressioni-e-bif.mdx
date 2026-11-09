@@ -1,0 +1,193 @@
+---
+id: espressioni-e-bif
+title: Espressioni e funzioni incorporate
+duration: 30
+objectives:
+  - Scrivere espressioni aritmetiche, di confronto e logiche
+  - Usare le funzioni incorporate per testi, numeri e date
+prerequisites: [tipi-di-dati]
+tags: [sintassi, bif]
+level: beginner
+---
+
+Un'**espressione** combina valori, variabili e operatori; le **funzioni incorporate** (in
+inglese *built-in functions*, spesso dette BIF) sono le funzioni che il linguaggio offre già
+pronte. In RPG si riconoscono subito: il loro nome comincia con `%`.
+
+## Assegnazioni e operatori
+
+L'assegnazione si scrive con `=`, e a destra c'è un'espressione:
+
+```text
+totale = quantita * prezzo;
+totale = (imponibile + spese) * 1.22;
+quadrato = lato ** 2;
+totale += riga;      // come totale = totale + riga
+contatore -= 1;      // come contatore = contatore - 1
+```
+
+| Operatori | Significato |
+| --------- | ----------- |
+| `+`, `-`, `*`, `/`, `**` | somma, sottrazione, moltiplicazione, divisione, potenza |
+| `=`, `<>`, `<`, `>`, `<=`, `>=` | uguale, diverso, minore, maggiore, minore o uguale, maggiore o uguale |
+| `and`, `or`, `not` | operatori logici |
+| `+` tra due testi | concatenazione |
+
+Lo stesso `=` serve per assegnare e per confrontare: in `if totale = 0` è un confronto, in
+`totale = 0;` un'assegnazione. Il compilatore capisce quale dei due dal contesto.
+
+Le precedenze sono quelle che ti aspetti: prima `**`, poi `*` e `/`, poi `+` e `-`, poi i
+confronti e infine `not`, `and` e `or`. Nel dubbio, aggiungi parentesi.
+
+<Callout type="warning" title="Divisione per zero">
+  Una divisione per zero ferma il programma con lo stato `00102`. Prima di dividere per un
+  valore che arriva dai dati, controlla che non sia zero.
+</Callout>
+
+## Lavorare con i testi
+
+```text showLineNumbers
+dcl-s nome varchar(30) inz('Ada');
+dcl-s cognome varchar(30) inz('Lovelace');
+dcl-s completo varchar(61);
+dcl-s posizione int(10);
+
+completo = nome + ' ' + cognome;          // 'Ada Lovelace'
+posizione = %scan('Love' : completo);     // 5
+posizione = %scan('love' : completo);     // 0: maiuscole e minuscole contano
+completo = %subst(completo : 5 : 4);      // 'Love'
+```
+
+Gli argomenti di una funzione sono separati dai **due punti**, non dalle virgole. Le
+funzioni più usate sui testi:
+
+| Funzione | Restituisce |
+| -------- | ----------- |
+| `%trim(t)`, `%triml(t)`, `%trimr(t)` | `t` senza gli spazi in testa e in coda, solo in testa, solo in coda |
+| `%subst(t : inizio : lunghezza)` | la parte di `t` che comincia in `inizio`, lunga `lunghezza` (la prima posizione è 1) |
+| `%scan(cercato : t)` | la posizione della prima occorrenza di `cercato` in `t`, oppure 0 |
+| `%scanrpl(cercato : nuovo : t)` | `t` con ogni `cercato` sostituito da `nuovo` |
+| `%len(t)` | la lunghezza di `t`: quella attuale per un `varchar`, quella dichiarata per un `char` |
+| `%xlate(da : a : t)` | `t` con ogni carattere di `da` sostituito dal carattere nella stessa posizione di `a` |
+
+`%subst` si può usare anche a sinistra dell'uguale, per cambiare solo una parte di un testo:
+
+```text
+dcl-s codice char(10) inz('XX12345678');
+
+%subst(codice : 1 : 2) = 'IT';            // 'IT12345678'
+```
+
+E per mettere un testo in maiuscolo si usa `%xlate` con due costanti:
+
+```text
+dcl-c MINUSCOLE 'abcdefghijklmnopqrstuvwxyz';
+dcl-c MAIUSCOLE 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+
+cognome = %xlate(MINUSCOLE : MAIUSCOLE : cognome);   // 'LOVELACE'
+```
+
+## Da numero a testo e ritorno
+
+Un numero non si può concatenare a un testo: prima va convertito.
+
+```text
+dcl-s totale packed(9:2) inz(1234.50);
+dcl-s messaggio varchar(52);
+dcl-s quantita int(10);
+dcl-s importo packed(9:2);
+
+messaggio = 'Totale: ' + %char(totale);   // 'Totale: 1234.50'
+quantita = %int('42');                    // 42
+importo = %dec('99.90' : 9 : 2);          // 99.90
+```
+
+- `%char` converte un numero (o una data) in testo, senza zeri in testa.
+- `%int` e `%dec` convertono un testo in numero. `%dec` vuole il numero di cifre e di
+  decimali del risultato. Se il testo non è un numero valido, il programma si ferma con lo
+  stato `00105`.
+- `%editc(numero : 'J')` formatta un numero con un **codice di modifica**: separatori delle
+  migliaia, virgola, segno. È il modo classico di preparare un importo per una stampa.
+
+Altre funzioni numeriche utili: `%abs(n)` (valore assoluto), `%div(a : b)` e `%rem(a : b)`
+(quoziente e resto di una divisione tra interi: `%div(17 : 5)` è 3, `%rem(17 : 5)` è 2).
+
+## Lavorare con le date
+
+```text
+dcl-s oggi date inz(*sys);
+dcl-s nascita date inz(d'1815-12-10');
+dcl-s scadenza date;
+dcl-s giorni int(10);
+dcl-s anni int(10);
+
+giorni = %diff(oggi : nascita : *days);
+anni = %diff(oggi : nascita : *years);
+scadenza = oggi + %days(30) + %months(1);
+dsply ('Scade il ' + %char(scadenza : *eur));
+```
+
+| Funzione | Restituisce |
+| -------- | ----------- |
+| `%date()` | la data di oggi; `%date(testo : *iso)` converte un testo in data |
+| `%days(n)`, `%months(n)`, `%years(n)` | una durata da sommare o sottrarre a una data |
+| `%diff(d1 : d2 : *days)` | la differenza tra due date, in giorni, mesi (`*months`) o anni (`*years`) |
+| `%subdt(d : *years)` | una parte della data: `*years`, `*months`, `*days` |
+| `%char(d : *eur)` | la data come testo nel formato indicato |
+
+Sommare un mese al 31 gennaio dà il 28 (o 29) febbraio: RPG non inventa giorni che non
+esistono. Una data non valida, come `%date('2026-02-30' : *iso)`, ferma il programma con lo
+stato `00112`.
+
+<Callout type="try">
+  1. Scrivi un programma che calcola quanti giorni mancano al tuo prossimo compleanno e li
+     mostra con `dsply`.
+  2. Mostra la data di oggi nei formati `*iso`, `*eur` e `*usa`.
+</Callout>
+
+## Verifica
+
+<Quiz id="quiz-espressioni-e-bif" title="Espressioni e funzioni incorporate" attempts={3}>
+  <Question id="risultato-scan" type="fill" objectives={["espressioni-e-funzioni"]} explanation="`%scan` restituisce la posizione della prima occorrenza, contando da 1; `%subst` estrae 3 caratteri a partire dalla posizione 2.">
+    Completa i risultati.
+
+    ```text
+    %scan('ce' : 'Lovelace')       // <Blank answer={7} label="risultato di scan" />
+    %subst('ABCDEF' : 2 : 3)        // <Blank answer="BCD" label="risultato di subst" />
+    %rem(17 : 5)                    // <Blank answer={2} label="risultato di rem" />
+    ```
+  </Question>
+
+  <Question id="len-di-char" type="true-false" answer={false} objectives={["espressioni-e-funzioni"]} explanation="Per un `char` `%len` restituisce la lunghezza dichiarata, 10; per un `varchar` quella attuale.">
+    Se `nome` è `char(10)` e contiene `Ada`, `%len(nome)` vale 3.
+  </Question>
+
+  <Question id="separatore-argomenti" type="single" objectives={["espressioni-e-funzioni"]} explanation="Gli argomenti delle funzioni incorporate e delle procedure sono separati dai due punti.">
+    Come si separano gli argomenti di una funzione incorporata?
+
+    <Option correct>Con i due punti: `%subst(t : 1 : 3)`</Option>
+    <Option>Con le virgole: `%subst(t, 1, 3)`</Option>
+    <Option>Con il punto e virgola: `%subst(t; 1; 3)`</Option>
+  </Question>
+
+  <Question id="numero-nel-testo" type="find-error" objectives={["espressioni-e-funzioni"]} explanation="`totale` è un numero: prima di concatenarlo a un testo va convertito con `%char(totale)`.">
+    Questo codice non si compila. Quale riga contiene l'errore?
+
+    ```text showLineNumbers error={5}
+    dcl-s totale packed(9:2) inz(150);
+    dcl-s messaggio varchar(52);
+
+    totale = totale * 1.22;
+    messaggio = 'Totale con IVA: ' + totale;
+    dsply messaggio;
+    ```
+  </Question>
+
+  <Question id="date-scadenza" type="multiple" objectives={["espressioni-e-funzioni"]} explanation="`%days` dà una durata da sommare alla data; `%diff` calcola la differenza tra due date. `%subdt` estrae solo una parte di una data.">
+    `oggi` e `scadenza` sono date. Quali istruzioni sono corrette?
+
+    <Option correct>`scadenza = oggi + %days(60);`</Option>
+    <Option correct>`giorni = %diff(scadenza : oggi : *days);`</Option>
+    <Option explanation="A una data non si somma un numero: serve una durata, come `%days(60)`.">`scadenza = oggi + 60;`</Option>
+  </Question>
+</Quiz>

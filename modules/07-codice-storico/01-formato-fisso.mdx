@@ -1,0 +1,205 @@
+---
+id: formato-fisso
+title: Il formato fisso
+duration: 35
+objectives:
+  - Leggere le specifiche a formato fisso e tradurle in formato libero
+  - Riconoscere le istruzioni che non esistono in formato libero
+prerequisites: [cursori]
+tags: [codice-storico, formato-fisso]
+level: intermediate
+---
+
+Prima o poi aprirai un sorgente scritto trent'anni fa. Sarà a **colonne fisse**: ogni riga
+è una *specifica*, e il significato di ogni carattere dipende dalla colonna in cui si trova.
+Questa lezione ti insegna a leggerlo e a tradurlo nel formato libero che conosci.
+
+## Le specifiche
+
+La lettera in **colonna 6** dice il tipo di specifica, e le specifiche vanno in quest'ordine:
+
+| Lettera | Specifica | Equivalente in formato libero |
+| ------- | --------- | ----------------------------- |
+| `H` | controllo | `ctl-opt` |
+| `F` | file | `dcl-f` |
+| `D` | definizioni | `dcl-s`, `dcl-ds`, `dcl-c`, `dcl-pr`, `dcl-pi` |
+| `I` | input, per i file descritti nel programma | nessuno: restano a formato fisso |
+| `C` | calcoli | le istruzioni |
+| `O` | output, per le stampe descritte nel programma | nessuno: restano a formato fisso |
+| `P` | procedure | `dcl-proc`, `end-proc` |
+
+Le colonne da 1 a 5 sono per il numero di sequenza, quasi sempre vuote; un asterisco in
+colonna 7 trasforma la riga in un commento.
+
+## Un programma completo
+
+```text title="Formato fisso" showLineNumbers
+     H DFTACTGRP(*NO) ACTGRP(*NEW)
+     FCLIENTI   IF   E           K DISK
+     D TOTALE          S             13P 2
+     D CODCLI          S              6A   INZ('C00042')
+      * Somma il saldo del cliente, se esiste
+     C     CODCLI        CHAIN     CLIENTI                            99
+     C     *IN99         IFEQ      *OFF
+     C                   ADD       SALDO         TOTALE
+     C                   ENDIF
+     C                   SETON                                        LR
+     C                   RETURN
+```
+
+```text title="Formato libero" showLineNumbers
+**FREE
+ctl-opt dftactgrp(*no) actgrp(*new);
+
+dcl-f clienti keyed;
+
+dcl-s totale packed(13:2);
+dcl-s codcli char(6) inz('C00042');
+
+// Somma il saldo del cliente, se esiste
+chain codcli clienti;
+if %found(clienti);
+  totale += saldo;
+endif;
+
+*inlr = *on;
+return;
+```
+
+Riga per riga:
+
+- **Riga 2, la specifica F.** Dopo il nome del file, in colonna 17 `I` dice che il file è di
+  input, in colonna 18 `F` che si legge con le istruzioni del programma (*full procedural*),
+  in colonna 22 `E` che è descritto esternamente, in colonna 34 `K` che si legge per chiave, e
+  dalla colonna 36 c'è il dispositivo, `DISK`.
+- **Righe 3 e 4, le specifiche D.** `S` nelle colonne 24-25 indica una variabile semplice; la
+  lunghezza finisce in colonna 39, il tipo è in colonna 40 (`P` impaccato, `A` testo) e i
+  decimali nelle colonne 41-42. Le parole chiave, come `INZ`, cominciano in colonna 44.
+- **Riga 6.** `CHAIN` con un **indicatore risultante**: `99`, nelle colonne 71-72, si accende
+  se il record **non** viene trovato. È il contrario di `%found`.
+- **Riga 7.** `IFEQ` confronta il fattore 1 e il fattore 2: «se `*IN99` è uguale a `*OFF`».
+- **Riga 8.** `ADD` con il fattore 1 vuoto somma il fattore 2 al campo risultato.
+- **Riga 10.** `SETON` accende l'indicatore scritto nelle colonne 71-72: `LR`, cioè `*inlr`.
+
+## Il righello
+
+Le specifiche C hanno queste colonne:
+
+| Colonne | Contenuto |
+| ------- | --------- |
+| 6 | tipo di specifica, `C` |
+| 7-8 | livello di controllo (`L1`-`L9`, `LR`) o `SR` per le subroutine |
+| 9-11 | indicatori di condizione, con `N` davanti per «spento» |
+| 12-25 | fattore 1 |
+| 26-35 | codice operativo ed estensioni |
+| 36-49 | fattore 2 |
+| 50-63 | campo risultato |
+| 64-68 | lunghezza del campo risultato, per dichiararlo al volo |
+| 69-70 | decimali del campo risultato |
+| 71-76 | indicatori risultanti: tre coppie di colonne |
+| 36-80 | fattore 2 esteso, al posto di fattore 2 e risultato, per le istruzioni con espressioni (`EVAL`, `IF`, `DOW`) |
+
+Esplora le righe d'esempio nel simulatore: è completato quando hai esaminato tutti i tipi di
+colonna.
+
+<Simulator id="il-righello-della-specifica-c" title="Il righello della specifica C" height={640} />
+
+## Istruzioni che non esistono in formato libero
+
+Molte istruzioni storiche non hanno una forma libera, perché un'espressione o una funzione
+incorporata fa lo stesso lavoro in modo più chiaro. Quando le incontri, ecco come tradurle:
+
+```text title="Formato fisso"
+     C                   MOVEL     'IT'          CODICE
+     C                   Z-ADD     0             TOTALE
+     C     *IN99         CABEQ     *ON           FINE
+     C     FINE          TAG
+     C     CHIAVE        KLIST
+     C                   KFLD                    CLIENTE
+     C                   KFLD                    NUMERO
+     C     CHIAVE        CHAIN     ORDINI                             99
+```
+
+| Istruzione storica | In formato libero |
+| ------------------ | ----------------- |
+| `MOVE`, `MOVEL` | un'assegnazione, con `%subst`, `%char` o `%dec` se cambia il tipo |
+| `Z-ADD`, `ADD`, `SUB`, `MULT`, `DIV` | un'assegnazione con un'espressione |
+| `CABxx`, `GOTO`, `TAG` | `if`, `leave`, `iter` o una procedura |
+| `KLIST` e `KFLD` | la chiave tra parentesi, `chain (cliente : numero) ordini;`, o `%kds` |
+| `SETON` e `SETOFF` | `*inlr = *on;` o, meglio, una variabile `ind` con un nome |
+| indicatori risultanti su `CHAIN`, `READ`, `SETLL` | `%found`, `%eof`, `%equal` |
+| `CALL` e `PARM` | un prototipo con `extpgm` |
+
+<Callout type="warning" title="MOVE non è un'assegnazione">
+  `MOVE` copia allineando a **destra**, `MOVEL` a **sinistra**, e tutte e due lasciano
+  com'erano le posizioni del campo risultato che non coprono, a meno dell'estensione `(P)`.
+  Tra numeri e testi convertono in modi che dipendono dalle lunghezze. Prima di tradurre un
+  `MOVE`, controlla tipi e lunghezze di tutti e due i campi.
+</Callout>
+
+<Callout type="note" title="Aritmetica che tronca">
+  `ADD`, `MULT` e le altre istruzioni aritmetiche a formato fisso, se il risultato non entra
+  nel campo, **troncano** le cifre più a sinistra senza errore. Un'espressione in un `EVAL` o in
+  formato libero si ferma invece con lo stato `00103`: traducendo, un errore nascosto da anni
+  può venire allo scoperto.
+</Callout>
+
+## Codice misto
+
+Tra il 2001 e il 2013 il formato libero esisteva solo per i calcoli, tra `/FREE` e
+`/END-FREE`, mentre le dichiarazioni restavano a colonne fisse. Troverai molti sorgenti così:
+
+```text title="Formato misto"
+     D TOTALE          S             13P 2
+      /FREE
+       chain codcli clienti;
+       if %found(clienti);
+         totale += saldo;
+       endif;
+      /END-FREE
+```
+
+Oggi, in un sorgente senza `**FREE`, il formato libero si può scrivere dalla colonna 8 senza
+`/FREE`, e si può mescolare riga per riga con il formato fisso. Per modernizzare un programma,
+di solito si converte un pezzo alla volta, partendo dai calcoli.
+
+<Callout type="try">
+  1. Traduci in formato libero la riga con `MULT` del simulatore, che moltiplica `IMPORTO` per
+     1.22 e mette il risultato in `LORDO`, di 11 cifre con 2 decimali. Ricordati di
+     dichiarare `LORDO`.
+  2. Cerca nella tua azienda, o in un progetto open source su GitHub, un sorgente RPG a
+     formato fisso e prova a leggerne le specifiche C con il righello.
+</Callout>
+
+## Verifica
+
+<Quiz id="quiz-formato-fisso" title="Il formato fisso" attempts={3}>
+  <Question id="colonna-tipo" type="fill" objectives={["formato-fisso-rpg"]} explanation="Il tipo di specifica è in colonna 6, il codice operativo comincia in colonna 26.">
+    In una specifica a formato fisso, il tipo di specifica è in colonna
+    <Blank answer={6} label="colonna del tipo" /> e il codice operativo di una specifica C
+    comincia in colonna <Blank answer={26} label="colonna del codice operativo" />.
+  </Question>
+
+  <Question id="indicatore-chain" type="single" objectives={["formato-fisso-rpg"]} explanation="L'indicatore nelle colonne 71-72 di `CHAIN` si accende quando il record non viene trovato: equivale a `not %found(clienti)`.">
+    Nel programma a formato fisso della lezione, la `CHAIN` della riga 6 ha l'indicatore 99
+    nelle colonne 71-72. Quando si accende?
+
+    <Option correct>Quando il record non viene trovato</Option>
+    <Option explanation="È il contrario: con il record trovato l'indicatore resta spento.">Quando il record viene trovato</Option>
+    <Option>Quando il file è finito</Option>
+  </Question>
+
+  <Question id="traduzioni" type="multiple" objectives={["formato-fisso-rpg"]} explanation="`Z-ADD` diventa un'assegnazione, `SETON LR` diventa `*inlr = *on`, `KLIST` diventa una chiave tra parentesi. `MOVEL` non è un'assegnazione semplice: copia allineando a sinistra e lascia com'era il resto del campo.">
+    Quali traduzioni in formato libero sono corrette?
+
+    <Option correct>`Z-ADD 0 TOTALE` diventa `totale = 0;`</Option>
+    <Option correct>`SETON` con `LR` nelle colonne 71-72 diventa `*inlr = *on;`</Option>
+    <Option correct>`CHAIN` con una `KLIST` di `CLIENTE` e `NUMERO` diventa `chain (cliente : numero) ordini;`</Option>
+    <Option explanation="Se `CODICE` è più lungo di 2 caratteri, `MOVEL` lascia com'erano le sue posizioni dopo la seconda, mentre l'assegnazione le riempie di spazi.">`MOVEL 'IT' CODICE` diventa sempre `codice = 'IT';`</Option>
+  </Question>
+
+  <Question id="free-misto" type="true-false" answer={true} objectives={["formato-fisso-rpg"]} explanation="Senza `**FREE`, il formato fisso e quello libero possono convivere nello stesso sorgente.">
+    In un sorgente senza `**FREE` si possono mescolare righe a formato fisso e righe in formato
+    libero.
+  </Question>
+</Quiz>

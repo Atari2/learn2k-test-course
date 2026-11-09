@@ -1,0 +1,147 @@
+---
+id: primo-programma
+title: Il primo programma
+duration: 20
+objectives:
+  - Scrivere, compilare ed eseguire un programma in formato libero
+  - Riconoscere le parti di un sorgente RPG
+prerequisites: [ambiente-ibm-i]
+tags: [sintassi]
+level: beginner
+---
+
+Il primo programma saluta una persona: dichiara due variabili, compone un messaggio e lo
+mostra sul terminale.
+
+```text title="CIAO.RPGLE" showLineNumbers
+**FREE
+ctl-opt dftactgrp(*no) actgrp(*new);
+
+dcl-s nome char(20) inz('Ada');
+dcl-s messaggio varchar(52);
+
+// Compone il messaggio e lo mostra
+messaggio = 'Ciao, ' + %trim(nome) + '!';
+dsply messaggio;
+
+*inlr = *on;
+return;
+```
+
+## Riga per riga
+
+- **Riga 1.** `**FREE`, scritto in colonna 1 della prima riga, dice al compilatore che tutto il
+  sorgente è in formato libero: niente colonne da rispettare.
+- **Riga 2.** `ctl-opt` raccoglie le **opzioni di controllo**, le scelte che valgono per tutto
+  il programma. `dftactgrp(*no)` chiede un programma ILE vero e proprio, che può usare le
+  procedure; `actgrp(*new)` lo fa girare in un **gruppo di attivazione** nuovo, che il sistema
+  chiude quando il programma finisce. Per ora scrivile sempre così.
+- **Righe 4 e 5.** `dcl-s` dichiara una variabile **standalone**, cioè una variabile semplice.
+  `nome` è un testo di 20 caratteri con il valore iniziale `Ada`; `messaggio` è un testo di
+  lunghezza variabile, al massimo 52 caratteri.
+- **Riga 7.** Un commento: da `//` a fine riga.
+- **Riga 8.** Un'assegnazione. Il `+` tra due testi li concatena, e la funzione incorporata
+  `%trim` toglie gli spazi in testa e in coda a `nome`, che altrimenti sarebbe lungo 20
+  caratteri.
+- **Riga 9.** `dsply` mostra un messaggio sul terminale e aspetta che l'utente prema
+  <kbd>Invio</kbd>. È comodo per le prove, ma accetta al massimo 52 caratteri: per questo
+  `messaggio` è lungo 52.
+- **Righe 11 e 12.** `*inlr = *on` accende l'**indicatore di ultimo record** e `return`
+  termina il programma. Con `*inlr` acceso il programma chiude i file e libera la memoria.
+
+Ogni istruzione finisce con il **punto e virgola**, e una dichiarazione si scrive prima del
+codice che la usa. Maiuscole e minuscole non contano: `DSPLY`, `Dsply` e `dsply` sono la
+stessa istruzione, e `nome` e `NOME` la stessa variabile.
+
+<Callout type="note" title="Perché *inlr?">
+  `*inlr` viene dal **ciclo RPG**, il meccanismo con cui i programmi storici leggevano i file
+  un record alla volta: il programma termina quando l'ultimo record è stato letto. Lo
+  incontrerai in quasi tutti i programmi esistenti; il modulo sul codice storico spiega il
+  ciclo nel dettaglio.
+</Callout>
+
+## Compila ed esegui
+
+Salva il sorgente come membro `CIAO` di tipo `RPGLE` nel file `QRPGLESRC`, poi:
+
+```text
+CRTBNDRPG PGM(MIALIB/CIAO) SRCFILE(MIALIB/QRPGLESRC) SRCMBR(CIAO)
+CALL PGM(MIALIB/CIAO)
+```
+
+Sul terminale compare:
+
+```text
+DSPLY  Ciao, Ada!
+```
+
+Il programma resta fermo finché non premi <kbd>Invio</kbd>. Se lo esegui in un lavoro
+**batch**, cioè senza un terminale, il messaggio va invece alla coda dei messaggi
+dell'operatore di sistema, `QSYSOPR`: `dsply` serve solo per le prove interattive.
+
+<Callout type="try">
+  1. Scrivi il programma, compilalo ed eseguilo.
+  2. Cambia `'Ada'` con il tuo nome e ripeti.
+  3. Togli `%trim` e ricompila: guarda dove finisce il punto esclamativo.
+  4. Togli il punto e virgola dopo `dsply messaggio`: leggi l'errore nel listato di
+     compilazione o nell'editor.
+</Callout>
+
+## Un programma senza ciclo
+
+I programmi nuovi possono fare a meno del ciclo RPG e di `*inlr`. Con l'opzione `main` il
+programma inizia da una **procedura principale**, come la `main` di altri linguaggi:
+
+```text title="CIAO2.RPGLE" showLineNumbers {2,4,10}
+**FREE
+ctl-opt main(saluta) dftactgrp(*no) actgrp(*new);
+
+dcl-proc saluta;
+  dcl-s nome char(20) inz('Ada');
+  dcl-s messaggio varchar(52);
+
+  messaggio = 'Ciao, ' + %trim(nome) + '!';
+  dsply messaggio;
+end-proc;
+```
+
+Il programma finisce quando finisce la procedura `saluta`. Le procedure hanno un modulo
+tutto loro più avanti nel corso: fino ad allora gli esempi usano la forma con `*inlr`, che è
+quella che incontrerai più spesso nel codice esistente.
+
+## Verifica
+
+<Quiz id="quiz-primo-programma" title="Il primo programma" attempts={3}>
+  <Question id="riga-free" type="single" objectives={["primo-programma-rpg"]} explanation="`**FREE` va in colonna 1 della prima riga e rende libero tutto il sorgente.">
+    Dove si scrive `**FREE`?
+
+    <Option correct>In colonna 1 della prima riga del sorgente</Option>
+    <Option>Prima di ogni blocco di calcoli</Option>
+    <Option>Nelle opzioni di `ctl-opt`</Option>
+  </Question>
+
+  <Question id="lunghezza-dsply" type="fill" objectives={["primo-programma-rpg"]} explanation="`dsply` mostra al massimo 52 caratteri.">
+    `dsply` mostra al massimo <Blank answer={52} label="numero di caratteri" /> caratteri.
+  </Question>
+
+  <Question id="maiuscole" type="true-false" answer={false} objectives={["primo-programma-rpg"]} explanation="RPG non distingue maiuscole e minuscole nei nomi e nelle istruzioni: `nome` e `NOME` sono la stessa variabile.">
+    In RPG `Totale` e `TOTALE` sono due variabili diverse.
+  </Question>
+
+  <Question id="punto-e-virgola" type="find-error" objectives={["primo-programma-rpg"]} explanation="Ogni istruzione in formato libero finisce con il punto e virgola: alla riga 6 manca.">
+    Questo programma non si compila. Quale riga contiene l'errore?
+
+    ```text showLineNumbers error={6}
+    **FREE
+    ctl-opt dftactgrp(*no) actgrp(*new);
+
+    dcl-s messaggio varchar(52);
+
+    messaggio = 'Buongiorno!'
+    dsply messaggio;
+
+    *inlr = *on;
+    return;
+    ```
+  </Question>
+</Quiz>

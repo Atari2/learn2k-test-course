@@ -1,0 +1,6 @@
+id: sql-embedded
+title: SQL embedded
+description: Usare l'SQL dentro i programmi RPG, dalle singole righe ai cursori.
+objectives:
+  - Eseguire istruzioni SQL con variabili host e controllarne l'esito
+  - Leggere insiemi di righe con i cursori

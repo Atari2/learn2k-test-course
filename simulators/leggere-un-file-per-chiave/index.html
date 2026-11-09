@@ -1,0 +1,515 @@
+<!doctype html>
+<html lang="it">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="learn2k-simulator" content="sdk=1; completion=reported" />
+    <title>Leggere un file per chiave</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        --bg: #ffffff;
+        --fg: #1f2933;
+        --muted: #52606d;
+        --border: #9aa5b1;
+        --surface: #f5f7fa;
+        --accent: #1d4ed8;
+        --current: #dbeafe;
+        --ok: #047857;
+        --error: #b91c1c;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root:not([data-theme='light']) {
+          --bg: #111827;
+          --fg: #f3f4f6;
+          --muted: #9ca3af;
+          --border: #6b7280;
+          --surface: #1f2937;
+          --accent: #93c5fd;
+          --current: #1e3a8a;
+          --ok: #6ee7b7;
+          --error: #fca5a5;
+        }
+      }
+      :root[data-theme='dark'] {
+        color-scheme: dark;
+        --bg: #111827;
+        --fg: #f3f4f6;
+        --muted: #9ca3af;
+        --border: #6b7280;
+        --surface: #1f2937;
+        --accent: #93c5fd;
+        --current: #1e3a8a;
+        --ok: #6ee7b7;
+        --error: #fca5a5;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        padding: 16px;
+        background: var(--bg);
+        color: var(--fg);
+        font:
+          15px/1.5 system-ui,
+          sans-serif;
+      }
+      h1 {
+        margin: 0 0 4px;
+        font-size: 1.15rem;
+      }
+      h2 {
+        margin: 18px 0 8px;
+        font-size: 1.05rem;
+      }
+      p {
+        margin: 0 0 12px;
+      }
+      .intro {
+        color: var(--muted);
+      }
+      code,
+      .mono {
+        font-family: ui-monospace, monospace;
+      }
+      .layout {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+        gap: 16px;
+      }
+      @media (max-width: 640px) {
+        .layout {
+          grid-template-columns: minmax(0, 1fr);
+        }
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+      }
+      th,
+      td {
+        padding: 4px 8px;
+        border: 1px solid var(--border);
+        text-align: left;
+      }
+      th {
+        background: var(--surface);
+      }
+      td.num {
+        text-align: right;
+        font-family: ui-monospace, monospace;
+      }
+      tr.current td {
+        background: var(--current);
+        font-weight: 600;
+      }
+      tr.next td {
+        border-top: 3px solid var(--accent);
+      }
+      tr.end td {
+        color: var(--muted);
+        font-style: italic;
+      }
+      .controls {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        align-items: flex-end;
+        margin-bottom: 8px;
+      }
+      label {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        font-weight: 600;
+      }
+      select {
+        min-height: 36px;
+        padding: 4px 8px;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        background: var(--bg);
+        color: var(--fg);
+        font: inherit;
+      }
+      button {
+        min-height: 36px;
+        padding: 6px 12px;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        background: var(--surface);
+        color: var(--fg);
+        font: inherit;
+        font-family: ui-monospace, monospace;
+        cursor: pointer;
+      }
+      button:focus-visible,
+      select:focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: 2px;
+      }
+      .status {
+        padding: 10px 12px;
+        border-left: 3px solid var(--accent);
+        background: var(--surface);
+      }
+      .status.error {
+        border-left-color: var(--error);
+      }
+      .status.done {
+        border-left-color: var(--ok);
+      }
+      .status code {
+        display: block;
+        margin-bottom: 4px;
+        font-weight: 700;
+      }
+      dl {
+        display: grid;
+        grid-template-columns: auto 1fr;
+        gap: 4px 12px;
+        margin: 0;
+      }
+      dt {
+        font-family: ui-monospace, monospace;
+        font-weight: 600;
+      }
+      dd {
+        margin: 0;
+        font-family: ui-monospace, monospace;
+      }
+      .goals {
+        margin: 0;
+        padding-left: 20px;
+      }
+      .goals .ok {
+        color: var(--ok);
+        font-weight: 600;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Leggere un file per chiave</h1>
+    <p class="intro">
+      Il file <span class="mono">ORDINI</span> ha la chiave <span class="mono">CLIENTE</span> (e poi
+      <span class="mono">NUMERO</span>). Scegli una chiave ed esegui le istruzioni: la tabella
+      mostra dove si trova il file dopo ognuna, e a destra vedi gli indicatori e le variabili del
+      programma.
+    </p>
+
+    <div class="layout">
+      <div>
+        <h2>Il file ORDINI</h2>
+        <table>
+          <caption class="intro" id="caption"></caption>
+          <thead>
+            <tr>
+              <th scope="col">Posizione</th>
+              <th scope="col">CLIENTE</th>
+              <th scope="col">NUMERO</th>
+              <th scope="col">IMPORTO</th>
+            </tr>
+          </thead>
+          <tbody id="rows"></tbody>
+        </table>
+      </div>
+      <div>
+        <h2>Istruzioni</h2>
+        <div class="controls">
+          <label>
+            Chiave
+            <select id="chiave">
+              <option value="C001">C001</option>
+              <option value="C002" selected>C002</option>
+              <option value="C003">C003</option>
+              <option value="C004">C004</option>
+              <option value="C005">C005</option>
+            </select>
+          </label>
+        </div>
+        <div class="controls">
+          <button type="button" data-op="chain">CHAIN</button>
+          <button type="button" data-op="setll">SETLL</button>
+          <button type="button" data-op="setgt">SETGT</button>
+          <button type="button" data-op="reade">READE</button>
+        </div>
+        <div class="controls">
+          <button type="button" data-op="read">READ</button>
+          <button type="button" data-op="readp">READP</button>
+          <button type="button" data-op="open">Riapri il file</button>
+        </div>
+        <div class="status" id="status" aria-live="polite"></div>
+
+        <h2>Indicatori e variabili</h2>
+        <dl id="state" role="region" aria-label="Indicatori e variabili"></dl>
+      </div>
+    </div>
+
+    <h2>Obiettivi</h2>
+    <ul class="goals">
+      <li id="goal-chain">Fai una CHAIN che non trova il record: <span>da fare</span></li>
+      <li id="goal-loop">
+        Leggi tutti gli ordini di un cliente: SETLL con la sua chiave, poi READE con la stessa
+        chiave finché <span class="mono">%EOF</span> si accende: <span>da fare</span>
+      </li>
+    </ul>
+
+    <script>
+      const RECORDS = [
+        { cliente: 'C001', numero: 1001, importo: '120.00' },
+        { cliente: 'C001', numero: 1004, importo: '75.50' },
+        { cliente: 'C002', numero: 1002, importo: '300.00' },
+        { cliente: 'C002', numero: 1005, importo: '42.00' },
+        { cliente: 'C002', numero: 1007, importo: '18.90' },
+        { cliente: 'C004', numero: 1003, importo: '210.00' },
+        { cliente: 'C005', numero: 1006, importo: '99.00' },
+      ];
+      const n = RECORDS.length;
+      const keySelect = document.getElementById('chiave');
+      const status = document.getElementById('status');
+      const goals = { chain: false, loop: false };
+      let completed = false;
+      let state;
+      let session = null;
+
+      function reset() {
+        state = {
+          pos: { kind: 'before', index: 0 },
+          found: null,
+          equal: null,
+          eof: false,
+          fields: { cliente: '', numero: 0, importo: '0.00' },
+        };
+      }
+
+      const onOff = (value) => (value === null ? 'non ancora impostato' : value ? "*on ('1')" : "*off ('0')");
+      const describe = (i) => `${RECORDS[i].cliente}, ordine ${RECORDS[i].numero}`;
+
+      function renderTable() {
+        const rows = document.getElementById('rows');
+        const items = RECORDS.map((rec, i) => {
+          const tr = document.createElement('tr');
+          let position = '';
+          if (state.pos.kind === 'on' && state.pos.index === i) {
+            tr.className = 'current';
+            position = '● ultimo letto';
+          } else if (state.pos.kind === 'before' && state.pos.index === i) {
+            tr.className = 'next';
+            position = '▶ prossimo';
+          }
+          for (const [value, cls] of [
+            [position, ''],
+            [rec.cliente, ''],
+            [String(rec.numero), 'num'],
+            [rec.importo, 'num'],
+          ]) {
+            const td = document.createElement('td');
+            td.textContent = value;
+            if (cls) td.className = cls;
+            tr.append(td);
+          }
+          return tr;
+        });
+        const end = document.createElement('tr');
+        end.className = 'end';
+        const td = document.createElement('td');
+        td.colSpan = 4;
+        if (state.pos.kind === 'before' && state.pos.index === n) {
+          end.classList.add('next');
+          td.textContent = '▶ fine del file: qui il file è posizionato';
+        } else {
+          td.textContent = 'fine del file';
+        }
+        end.append(td);
+        rows.replaceChildren(...items, end);
+
+        const caption = document.getElementById('caption');
+        if (state.pos.kind === 'none') {
+          caption.textContent = 'Il file non è posizionato: prima di leggere usa SETLL, SETGT o CHAIN.';
+        } else if (state.pos.kind === 'on') {
+          caption.textContent = `Il file è sul record ${state.pos.index + 1} (${describe(state.pos.index)}).`;
+        } else if (state.pos.index === n) {
+          caption.textContent = 'Il file è posizionato alla fine.';
+        } else {
+          caption.textContent = `Il file è posizionato prima del record ${state.pos.index + 1} (${describe(state.pos.index)}).`;
+        }
+      }
+
+      function renderState() {
+        const items = [
+          ['%FOUND(ordini)', onOff(state.found)],
+          ['%EQUAL(ordini)', onOff(state.equal)],
+          ['%EOF(ordini)', onOff(state.eof)],
+          ['cliente', `'${state.fields.cliente.padEnd(4, ' ')}'`],
+          ['numero', String(state.fields.numero)],
+          ['importo', state.fields.importo],
+        ];
+        document.getElementById('state').replaceChildren(
+          ...items.flatMap(([name, value]) => {
+            const dt = document.createElement('dt');
+            dt.textContent = name;
+            const dd = document.createElement('dd');
+            dd.textContent = value;
+            return [dt, dd];
+          }),
+        );
+      }
+
+      function render() {
+        renderTable();
+        renderState();
+      }
+
+      function say(statement, text, kind) {
+        status.replaceChildren();
+        const code = document.createElement('code');
+        code.textContent = statement;
+        status.append(code, document.createTextNode(text));
+        status.classList.toggle('error', kind === 'error');
+        status.classList.toggle('done', kind === 'done');
+      }
+
+      function readRecord(i) {
+        state.fields = { ...RECORDS[i] };
+        state.pos = { kind: 'on', index: i };
+        state.eof = false;
+      }
+
+      function nextIndex() {
+        return state.pos.kind === 'before' ? state.pos.index : state.pos.index + 1;
+      }
+
+      function previousIndex() {
+        return state.pos.index - 1;
+      }
+
+      function updateGoals() {
+        for (const [key, done] of Object.entries(goals)) {
+          const label = document.querySelector(`#goal-${key} > span:last-child`);
+          label.textContent = done ? 'fatto ✓' : 'da fare';
+          label.className = done ? 'ok' : '';
+        }
+        if (!completed && goals.chain && goals.loop) {
+          completed = true;
+          window.learn2k?.complete({ success: true });
+        }
+      }
+
+      const OPS = {
+        chain(key) {
+          const statement = `chain '${key}' ordini;`;
+          const i = RECORDS.findIndex((r) => r.cliente === key);
+          if (i >= 0) {
+            readRecord(i);
+            state.found = true;
+            return [statement, ` Trovato il primo record con chiave ${key}: ${describe(i)}. %FOUND è *on, e una READ o una READE successiva continua dal record dopo.`];
+          }
+          state.found = false;
+          state.pos = { kind: 'none' };
+          goals.chain = true;
+          return [statement, ` Nessun record con chiave ${key}: %FOUND è *off e le variabili non cambiano. Prima di leggere ancora va riposizionato il file.`];
+        },
+        setll(key) {
+          const statement = `setll '${key}' ordini;`;
+          const i = RECORDS.findIndex((r) => r.cliente >= key);
+          if (i >= 0) {
+            state.pos = { kind: 'before', index: i };
+            state.found = true;
+            state.equal = RECORDS[i].cliente === key;
+            state.eof = false;
+            if (state.equal) session = { key, read: 0 };
+            return [statement, ` Posizionato prima del primo record con chiave maggiore o uguale a ${key} (${describe(i)}). %FOUND è *on, %EQUAL è ${state.equal ? '*on: la chiave esiste' : '*off: la chiave non esiste'}. SETLL non legge dati: le variabili non cambiano.`];
+          }
+          state.pos = { kind: 'before', index: n };
+          state.found = false;
+          state.equal = false;
+          return [statement, ` Nessun record con chiave maggiore o uguale a ${key}: il file è posizionato alla fine, %FOUND e %EQUAL sono *off.`];
+        },
+        setgt(key) {
+          const statement = `setgt '${key}' ordini;`;
+          const i = RECORDS.findIndex((r) => r.cliente > key);
+          if (i >= 0) {
+            state.pos = { kind: 'before', index: i };
+            state.found = true;
+            state.eof = false;
+            return [statement, ` Posizionato dopo l'ultimo record con chiave ${key}, cioè prima di ${describe(i)}. %FOUND è *on. Una READP ora leggerebbe l'ultimo record con chiave minore o uguale a ${key}.`];
+          }
+          state.pos = { kind: 'before', index: n };
+          state.found = false;
+          return [statement, ` Nessun record con chiave maggiore di ${key}: il file è posizionato alla fine e %FOUND è *off.`];
+        },
+        read() {
+          const statement = 'read ordini;';
+          const i = nextIndex();
+          if (i < n) {
+            readRecord(i);
+            return [statement, ` Letto il record successivo: ${describe(i)}.`];
+          }
+          state.eof = true;
+          state.pos = { kind: 'none' };
+          return [statement, ' Non ci sono altri record: %EOF è *on e le variabili non cambiano.'];
+        },
+        readp() {
+          const statement = 'readp ordini;';
+          const i = previousIndex();
+          if (i >= 0) {
+            readRecord(i);
+            return [statement, ` Letto il record precedente: ${describe(i)}.`];
+          }
+          state.eof = true;
+          state.pos = { kind: 'none' };
+          return [statement, " Non ci sono record prima: %EOF è *on, anche se è l'inizio del file."];
+        },
+        reade(key) {
+          const statement = `reade '${key}' ordini;`;
+          const i = nextIndex();
+          if (i < n && RECORDS[i].cliente === key) {
+            readRecord(i);
+            return [statement, ` Il record successivo ha la chiave ${key}: letto ${describe(i)}.`];
+          }
+          state.eof = true;
+          state.pos = { kind: 'none' };
+          const why = i < n ? `il record successivo ha la chiave ${RECORDS[i].cliente}, non ${key}` : 'non ci sono altri record';
+          return [statement, ` ${why[0].toUpperCase() + why.slice(1)}: %EOF è *on e le variabili non cambiano.`];
+        },
+        open() {
+          reset();
+          return ['close ordini; open ordini;', ' Il file è di nuovo aperto, posizionato prima del primo record.'];
+        },
+      };
+
+      function run(op) {
+        const key = keySelect.value;
+        if ((op === 'read' || op === 'readp' || op === 'reade') && state.pos.kind === 'none') {
+          session = null;
+          say(`${op} ${op === 'reade' ? `'${key}' ` : ''}ordini;`, ' Il file non è posizionato, dopo una fine del file o una CHAIN senza risultato: prima di leggere usa SETLL, SETGT o CHAIN, oppure riapri il file.', 'error');
+          return;
+        }
+        const keepSession = op === 'reade' && session && session.key === key;
+        if (op !== 'setll' && !keepSession) session = null;
+        const [statement, text] = OPS[op](key);
+        if (keepSession) {
+          if (state.eof) {
+            const total = RECORDS.filter((r) => r.cliente === key).length;
+            if (session.read === total) goals.loop = true;
+            session = null;
+          } else {
+            session.read += 1;
+          }
+        }
+        window.learn2k?.interacted(op, statement);
+        updateGoals();
+        say(statement, text, completed ? 'done' : '');
+        render();
+      }
+
+      document.querySelectorAll('[data-op]').forEach((button) => {
+        button.addEventListener('click', () => run(button.dataset.op));
+      });
+      reset();
+      render();
+      say('dcl-f ordini keyed;', ' Il file è aperto e posizionato prima del primo record.', '');
+    </script>
+  </body>
+</html>

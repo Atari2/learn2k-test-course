@@ -1,0 +1,194 @@
+---
+id: sql-nei-programmi
+title: SQL nei programmi RPG
+duration: 30
+objectives:
+  - Eseguire istruzioni SQL con variabili host e controllarne l'esito
+  - Compilare un sorgente SQLRPGLE
+prerequisites: [aggiornare-i-dati]
+tags: [sql, database]
+level: intermediate
+---
+
+Le istruzioni native leggono un record alla volta. L'SQL lavora invece su **insiemi** di
+righe: un solo `UPDATE` può cambiare migliaia di righe, una `SELECT` può unire più tabelle,
+raggruppare e sommare. Nei programmi RPG le due tecniche convivono, e il codice nuovo usa
+sempre più spesso l'SQL.
+
+## Un'istruzione SQL nel codice
+
+Un'istruzione SQL si scrive dopo `exec sql` e finisce con il punto e virgola:
+
+```text title="SALDOSQL.SQLRPGLE" showLineNumbers {4,10-13}
+**FREE
+ctl-opt dftactgrp(*no) actgrp(*new);
+
+exec sql set option commit = *none, naming = *sys;
+
+dcl-s codice char(6) inz('C00042');
+dcl-s nome char(40);
+dcl-s saldo packed(11:2);
+
+exec sql
+  select nome, saldo into :nome, :saldo
+    from clienti
+    where codice = :codice;
+
+if sqlcode = 0;
+  dsply (%trim(nome) + ': ' + %char(saldo));
+elseif sqlcode = 100;
+  dsply 'Cliente inesistente';
+else;
+  dsply ('Errore SQL ' + %char(sqlcode));
+endif;
+
+*inlr = *on;
+return;
+```
+
+- Le variabili RPG usate nell'SQL si chiamano **variabili host** e si scrivono con i due punti
+  davanti: `:codice`. Senza i due punti, `codice` è il nome di una colonna.
+- `select … into` legge **una sola riga** nelle variabili. Se la query restituisce più righe,
+  è un errore: per leggerne più di una servono i cursori della prossima lezione.
+- `set option` deve essere la **prima** istruzione SQL del sorgente. `commit = *none` lavora
+  senza controllo del commit; `naming = *sys` cerca le tabelle senza libreria nella lista
+  librerie, come fanno le istruzioni native.
+
+## SQLCODE e SQLSTATE
+
+Dopo ogni istruzione SQL il precompilatore aggiorna `sqlcode` e `sqlstate`, due variabili che
+il programma ha senza doverle dichiarare:
+
+| `sqlcode` | `sqlstate` | Significato |
+| --------- | ---------- | ----------- |
+| 0 | `00000` | tutto bene |
+| 100 | `02000` | nessuna riga trovata o nessuna riga da leggere |
+| maggiore di 0 | comincia con `01` | riuscita, ma con un avviso |
+| minore di 0 | altri valori | errore |
+
+Un errore SQL **non** ferma il programma: imposta `sqlcode` e passa all'istruzione dopo.
+Controlla sempre l'esito, altrimenti un errore passa inosservato e le variabili host restano
+quelle di prima.
+
+<Callout type="tip" title="Che cosa vuol dire quel codice?">
+  Ogni `sqlcode` negativo corrisponde a un messaggio di sistema: `-204`, per esempio, al
+  messaggio `SQL0204` (oggetto non trovato). `DSPMSGD RANGE(SQL0204) MSGF(QSQLMSG)` ne mostra
+  il testo, e nel registro del lavoro trovi il messaggio con i dettagli.
+</Callout>
+
+## Modificare i dati
+
+```text
+dcl-s importo packed(11:2) inz(250);
+dcl-s citta char(30) inz('Torino');
+
+exec sql
+  update clienti
+    set saldo = saldo + :importo
+    where citta = :citta;
+
+exec sql
+  insert into clienti (codice, nome, citta, saldo)
+    values (:codice, :nome, :citta, 0);
+
+exec sql
+  delete from clienti
+    where saldo = 0 and citta = :citta;
+```
+
+Dopo un `UPDATE` o un `DELETE`, `sqlcode` vale 100 se nessuna riga corrispondeva alla
+condizione. Il numero di righe toccate si legge con `get diagnostics`:
+
+```text
+dcl-s righe int(10);
+
+exec sql get diagnostics :righe = row_count;
+dsply ('Clienti aggiornati: ' + %char(righe));
+```
+
+## I valori nulli
+
+Una colonna che ammette `NULL` richiede una **variabile indicatore**, un `int(5)` scritto
+subito dopo la variabile host: vale -1 se il valore è nullo.
+
+```text
+dcl-s email varchar(100);
+dcl-s emailNulla int(5);
+
+exec sql
+  select email into :email :emailNulla
+    from clienti
+    where codice = :codice;
+
+if emailNulla = -1;
+  email = '';
+endif;
+```
+
+Senza la variabile indicatore, una `select` che trova un valore nullo fallisce con un errore.
+
+## Compilare
+
+Un sorgente con SQL ha il tipo `SQLRPGLE` e si compila con `CRTSQLRPGI`. Il comando traduce
+prima le istruzioni SQL in chiamate al database, poi passa il risultato al compilatore RPG:
+
+```text
+CRTSQLRPGI OBJ(MIALIB/SALDOSQL) SRCFILE(MIALIB/QRPGLESRC) SRCMBR(SALDOSQL) OBJTYPE(*PGM)
+```
+
+`OBJTYPE(*MODULE)` crea invece un modulo, da usare con `CRTPGM` o `CRTSRVPGM`.
+
+<Callout type="danger" title="Niente SQL composto concatenando testi">
+  Un'istruzione SQL costruita concatenando testi scritti dall'utente, ed eseguita con
+  `prepare` ed `execute`, è esposta alla *SQL injection*. Usa l'SQL statico, con le variabili
+  host, come negli esempi; se l'istruzione deve davvero essere dinamica, usa i marcatori
+  `?` e passa i valori con `using`.
+</Callout>
+
+<Callout type="try">
+  1. Compila `SALDOSQL` e provalo con un codice che esiste e con uno che non esiste.
+  2. Cambia il nome della tabella in `clientx`: quale `sqlcode` ottieni?
+  3. Aggiorna con un `UPDATE` il saldo di tutti i clienti di una città e mostra quanti sono
+     cambiati.
+</Callout>
+
+## Verifica
+
+<Quiz id="quiz-sql-nei-programmi" title="SQL nei programmi RPG" attempts={3}>
+  <Question id="due-punti" type="single" objectives={["sql-embedded-rpg"]} explanation="Le variabili host si scrivono con i due punti davanti; senza, sono nomi di colonne.">
+    In `where codice = :codice`, che cos'è `:codice`?
+
+    <Option correct>La variabile `codice` del programma RPG</Option>
+    <Option explanation="Senza i due punti sarebbe la colonna.">La colonna `codice` della tabella</Option>
+    <Option>Un parametro della procedura</Option>
+  </Question>
+
+  <Question id="sqlcode-valori" type="fill" objectives={["sql-embedded-rpg"]} explanation="`sqlcode` vale 0 quando va tutto bene e 100 quando non ci sono righe.">
+    Dopo una `select … into` che non trova righe, `sqlcode` vale
+    <Blank answer={100} label="sqlcode senza righe" /> e `sqlstate` vale
+    <Blank answer="02000" label="sqlstate senza righe" />.
+  </Question>
+
+  <Question id="errore-sql-ferma" type="true-false" answer={false} objectives={["sql-embedded-rpg"]} explanation="Un errore SQL imposta `sqlcode` e il programma continua: tocca al programma controllare l'esito.">
+    Un errore in un'istruzione SQL embedded ferma il programma, come una divisione per zero.
+  </Question>
+
+  <Question id="comando-sql" type="single" objectives={["sql-embedded-rpg"]} explanation="I sorgenti `SQLRPGLE` si compilano con `CRTSQLRPGI`, che prima traduce l'SQL.">
+    Con quale comando si compila un sorgente `SQLRPGLE`?
+
+    <Option correct>`CRTSQLRPGI`</Option>
+    <Option explanation="`CRTBNDRPG` non conosce le istruzioni `exec sql`.">`CRTBNDRPG`</Option>
+    <Option>`RUNSQLSTM`</Option>
+  </Question>
+
+  <Question id="host-senza-due-punti" type="find-error" objectives={["sql-embedded-rpg"]} explanation="Alla riga 4 mancano i due punti: `codice` è confrontato con la colonna stessa, e la condizione è vera per ogni riga.">
+    Questa `select` restituisce più righe e fallisce. Quale riga contiene l'errore?
+
+    ```text showLineNumbers error={4}
+    exec sql
+      select nome, saldo into :nome, :saldo
+        from clienti
+        where codice = codice;
+    ```
+  </Question>
+</Quiz>

@@ -1,0 +1,119 @@
+---
+title: Ripasso finale del corso
+---
+
+<Question id="ripasso-ctl-opt" type="single" objectives={["primo-programma-rpg"]} explanation="Senza `dftactgrp(*no)` il programma gira nel gruppo di attivazione predefinito, dove le procedure non sono ammesse.">
+  Un programma con procedure non si compila con `CRTBNDRPG`. Che cosa manca, molto
+  probabilmente, in `ctl-opt`?
+
+  <Option correct>`dftactgrp(*no)`</Option>
+  <Option explanation="`nomain` serve ai moduli senza codice principale, come quelli dei programmi di servizio.">`nomain`</Option>
+  <Option explanation="`datfmt` cambia solo il formato predefinito delle date.">`datfmt(*iso)`</Option>
+</Question>
+
+<Question id="ripasso-packed" type="fill" objectives={["dichiarazioni-e-tipi"]} explanation="`packed(7:2)` ha 7 cifre, di cui 2 decimali: le cifre intere sono 5, quindi il massimo è 99999.99.">
+  Il valore più grande che entra in una variabile `packed(7:2)` è
+  <Blank answer={99999.99} label="valore massimo" width={10} />.
+</Question>
+
+<Question id="ripasso-trim" type="single" objectives={["espressioni-e-funzioni"]} explanation="Un `char(20)` è completato con spazi: senza `%trim` il punto esclamativo finisce dopo 17 spazi.">
+  `nome` è `char(20)` e contiene `Ada`. Quale espressione produce `Ciao, Ada!`?
+
+  <Option correct>`'Ciao, ' + %trim(nome) + '!'`</Option>
+  <Option explanation="Senza `%trim` ci sono 17 spazi tra `Ada` e il punto esclamativo.">`'Ciao, ' + nome + '!'`</Option>
+  <Option explanation="Manca il punto esclamativo: il risultato è `Ciao, Ada`.">`'Ciao, ' + %subst(nome : 1 : 3)`</Option>
+</Question>
+
+<Question id="ripasso-dou" type="true-false" answer={true} objectives={["controllo-del-flusso-rpg"]} explanation="`dou` controlla la condizione alla fine del giro.">
+  Il blocco di un ciclo `dou` si esegue almeno una volta.
+</Question>
+
+<Question id="ripasso-ds-inz" type="single" objectives={["strutture-dati-rpg"]} explanation="Senza `inz` la struttura è piena di spazi, che non sono un numero impaccato valido.">
+  Che cosa causa, di solito, l'errore `00907` (dati decimali non validi) in un programma nuovo?
+
+  <Option correct>Una struttura dati con sottocampi numerici dichiarata senza `inz`</Option>
+  <Option explanation="Una divisione per zero ha lo stato `00102`.">Una divisione per zero</Option>
+  <Option explanation="Un indice fuori dai limiti ha lo stato `00121`.">Un indice di array fuori dai limiti</Option>
+</Question>
+
+<Question id="ripasso-array-indice" type="fill" objectives={["array-rpg"]} explanation="Gli indici partono da 1, quindi l'ultimo elemento di un array con `dim(12)` è il 12.">
+  In `dcl-s mesi char(9) dim(12);` il primo elemento è `mesi(<Blank answer={1} label="primo indice" width={3} />)`
+  e l'ultimo è `mesi(<Blank answer={12} label="ultimo indice" width={3} />)`.
+</Question>
+
+<Question id="ripasso-const" type="single" objectives={["procedure-rpg"]} explanation="`const` impedisce le modifiche e accetta anche espressioni e costanti.">
+  Quale parametro accetta anche un'espressione, come `prezzo * 2`, e non può essere modificato
+  dalla procedura?
+
+  <Option correct>`importo packed(11:2) const`</Option>
+  <Option explanation="Per riferimento si può passare solo una variabile dello stesso tipo.">`importo packed(11:2)`</Option>
+  <Option explanation="`value` accetta espressioni, ma la procedura può modificare la sua copia.">`importo packed(11:2) value`</Option>
+</Question>
+
+<Question id="ripasso-export" type="true-false" answer={false} objectives={["programmi-di-servizio-rpg"]} explanation="Le righe `EXPORT` non vanno mai riordinate né tolte: i programmi già compilati ricordano la posizione di ogni procedura.">
+  Nel sorgente del binder si possono riordinare le righe `EXPORT` senza conseguenze per i
+  programmi già compilati.
+</Question>
+
+<Question id="ripasso-monitor" type="find-error" objectives={["gestione-errori-rpg"]} explanation="Alla riga 5 `on-error *program` viene prima di `on-error 00102`, e intercetta anche la divisione per zero: il blocco specifico non si esegue mai.">
+  La divisione per zero dovrebbe azzerare `media`, ma il programma mostra sempre
+  «Errore imprevisto». Quale riga contiene l'errore?
+
+  ```text showLineNumbers error={5}
+  monitor;
+    media = totale / quantita;
+  on-error 00121;
+    media = -1;
+  on-error *program;
+    dsply 'Errore imprevisto';
+  on-error 00102;
+    media = 0;
+  endmon;
+  ```
+</Question>
+
+<Question id="ripasso-setll-reade" type="order" objectives={["lettura-file"]} explanation="Si posiziona il file con `setll`, si legge il primo record con `reade`, si ripete finché `%eof` è spento, leggendo il successivo in fondo al ciclo.">
+  Metti in ordine le istruzioni per sommare gli ordini di un cliente.
+
+  <Option>`setll cercato ordini;`</Option>
+  <Option>`reade cercato ordini;` prima del ciclo</Option>
+  <Option>`dow not %eof(ordini);`</Option>
+  <Option>`totale += importo;`</Option>
+  <Option>`reade cercato ordini;` in fondo al ciclo</Option>
+  <Option>`enddo;`</Option>
+</Question>
+
+<Question id="ripasso-update" type="single" objectives={["scrittura-file"]} explanation="L'estensione `(n)` legge senza bloccare: un record letto così non si può aggiornare.">
+  Un record letto con `chain(n)` da un file aperto con `usage(*update)`:
+
+  <Option correct>non è bloccato, e non si può aggiornare senza rileggerlo</Option>
+  <Option explanation="`(n)` vuol dire proprio *no lock*.">è bloccato fino alla prossima lettura</Option>
+  <Option explanation="Per aggiornare serve il blocco: con `(n)` non c'è.">si può aggiornare con `update`</Option>
+</Question>
+
+<Question id="ripasso-sqlcode" type="multiple" objectives={["sql-embedded-rpg"]} explanation="0 è un successo, 100 indica nessuna riga, un valore negativo un errore.">
+  Dopo un'istruzione SQL embedded, quali affermazioni su `sqlcode` sono vere?
+
+  <Option correct>0 vuol dire che l'istruzione è riuscita</Option>
+  <Option correct>100 vuol dire che non c'erano righe</Option>
+  <Option correct>un valore negativo vuol dire errore</Option>
+  <Option explanation="Un errore SQL non ferma il programma: imposta `sqlcode`.">un valore negativo ferma il programma</Option>
+</Question>
+
+<Question id="ripasso-cursore" type="true-false" answer={false} objectives={["cursori-rpg"]} explanation="Un cursore aperto va chiuso prima di riaprirlo: altrimenti `open` fallisce.">
+  Un cursore già aperto si può riaprire con `open` senza chiuderlo, per rieseguire la query.
+</Question>
+
+<Question id="ripasso-colonne" type="fill" objectives={["formato-fisso-rpg"]} explanation="In una specifica C il fattore 1 è nelle colonne 12-25, il codice operativo nelle 26-35, il fattore 2 nelle 36-49.">
+  In una specifica C a formato fisso il fattore 2 comincia in colonna
+  <Blank answer={36} label="colonna del fattore 2" width={4} />.
+</Question>
+
+<Question id="ripasso-inlr" type="single" objectives={["indicatori-e-ciclo-rpg"]} explanation="Senza `LR` e senza `return`, il ciclo RPG ricomincia ed esegue di nuovo i calcoli.">
+  Un programma senza file primario e senza `ctl-opt main` non accende `*inlr` e non esegue
+  `return`. Che cosa succede alla fine dei calcoli?
+
+  <Option correct>Il ciclo RPG ricomincia ed esegue di nuovo i calcoli</Option>
+  <Option explanation="Senza `LR` acceso il ciclo non termina il programma.">Il programma termina e chiude i file</Option>
+  <Option>Il compilatore lo rifiuta</Option>
+</Question>

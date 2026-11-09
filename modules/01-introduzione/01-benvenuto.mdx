@@ -1,16 +1,75 @@
 ---
 id: benvenuto
-title: Benvenuto
+title: Benvenuto nel corso
 duration: 10
 objectives:
-  - Cosa saprà fare lo studente alla fine della lezione
-prerequisites: []
-tags: []
+  - Descrivere a che cosa serve RPG e dove si usa oggi
+  - Preparare l'accesso a un sistema IBM i su cui fare le prove
+tags: [orientamento]
+level: beginner
 ---
 
-Introduci l'argomento della lezione.
+**RPG** è il linguaggio con cui da decenni si scrivono i programmi gestionali che girano su
+**IBM i**, il sistema operativo dei server IBM Power nato con l'AS/400. Fatture, magazzini,
+paghe, ordini, movimenti bancari: in molte aziende italiane il cuore dei dati passa ancora
+ogni giorno da un programma RPG.
 
-## Primo paragrafo
+Questo corso parte da zero e arriva a leggere e scrivere programmi RPG moderni, in **formato
+libero**, che leggono e aggiornano tabelle di Db2 for i, con l'accesso nativo ai file e con
+l'SQL embedded. L'ultimo modulo insegna a leggere il codice storico, a colonne fisse, che
+incontrerai in qualunque progetto reale.
 
-Scrivi qui il contenuto. Puoi usare Markdown, blocchi di codice e i componenti
-didattici: `<Callout>`, `<Image>`, `<Video>`, `<CodeTabs>`, `<Quiz>`, `<Exercise>`.
+## Che cosa imparerai
+
+| Modulo | Argomento |
+| ------ | --------- |
+| 1 | Che cos'è RPG, la sua storia e l'ambiente IBM i |
+| 2 | Le basi: dichiarazioni, tipi di dati, espressioni e controllo del flusso |
+| 3 | Strutture dati e array |
+| 4 | Procedure, programmi di servizio e gestione degli errori |
+| 5 | L'accesso nativo ai file di database |
+| 6 | L'SQL embedded nei programmi RPG |
+| 7 | Il codice storico: colonne fisse, indicatori e ciclo RPG |
+
+## Di che cosa hai bisogno
+
+Il corso non dà per scontato che tu conosca IBM i, ma che tu abbia già scritto qualche
+programma in un altro linguaggio: sai che cos'è una variabile, un ciclo, una funzione.
+
+Per provare gli esempi ti serve un utente su un sistema IBM i:
+
+- quello della tua azienda, con una libreria personale in cui creare oggetti;
+- oppure [PUB400](https://pub400.com), un sistema IBM i pubblico e gratuito su cui ci si
+  registra con un indirizzo email e si riceve una libreria personale.
+
+Per collegarti ti servono un emulatore di terminale 5250, come IBM i Access Client Solutions
+(ACS), e un editor. L'editor consigliato è Visual Studio Code con l'estensione **Code for IBM
+i**, che modifica i sorgenti sul sistema, li compila e mostra gli errori accanto al codice.
+
+<Callout type="tip" title="Un editor moderno">
+  SEU, l'editor a schermo verde storico di IBM i, non viene più aggiornato da anni e segnala
+  come errori le istruzioni RPG più recenti. Usalo solo per leggere, se proprio capita.
+</Callout>
+
+## Come sono fatte le lezioni
+
+Ogni lezione alterna spiegazioni ed esempi di codice. Gli esempi sono completi: puoi copiarli
+in un membro sorgente, compilarli ed eseguirli. In fondo a quasi ogni lezione c'è un quiz,
+e alla fine di ogni modulo un'autovalutazione degli obiettivi.
+
+I riquadri **Prova tu** propongono un'attività da fare sul tuo sistema IBM i. Nessuno la
+controlla, ma è il modo più rapido per fissare quello che hai letto.
+
+<Callout type="try">
+  1. Crea il tuo utente su PUB400, oppure chiedi al tuo amministratore di sistema un utente e
+     una libreria di prova.
+  2. Collegati con il terminale 5250 e accedi.
+  3. Sulla riga comandi scrivi `DSPLIBL` e premi <kbd>Invio</kbd>: vedi l'elenco delle librerie
+     del tuo lavoro, di cui parla la lezione [L'ambiente IBM i](./03-ambiente-ibm-i.mdx).
+</Callout>
+
+<Callout type="note" title="Convenzioni del corso">
+  Negli esempi i nomi in maiuscolo come `MIALIB` sono segnaposto: sostituiscili con la tua
+  libreria. RPG non distingue maiuscole e minuscole, quindi `DCL-S` e `dcl-s` sono la stessa
+  istruzione; il corso scrive il codice in minuscolo e i comandi di sistema in maiuscolo.
+</Callout>
